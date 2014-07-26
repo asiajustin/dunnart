@@ -32,7 +32,7 @@
 **
 ** UML classes are shown with three sections, separated by horizontal lines:
 ** class name, attributes, and methods. If any section is ommitted that
-** does not necessarily mean it is empty. UMLClass does not currently 
+** does not necessarily mean it is empty. UMLClass does not currently
 ** support ommitting the attributes section, it either displays all
 ** three sections or just the class name.
 **
@@ -76,13 +76,16 @@
 #include <vector> 
 
 #include "libdunnartcanvas/shape.h"
+#include "editumlclassinfodialog.h"
 using namespace dunnart;
 
 
 enum UML_Param_Mode { UNSPECIFIED, PARAM_IN, PARAM_OUT };
+enum ACCESS_MODIFIER { DEFAULT, PRIVATE, PROTECTED, PUBLIC};
 
 struct Attribute {
     bool is_public;
+    ACCESS_MODIFIER accessModifier;
     QString name;
     QString type;
     QString stereotype;
@@ -96,23 +99,33 @@ struct Parameter {
 
 struct Method {
     bool is_public;
+    ACCESS_MODIFIER accessModifier;
     QString name;
     QString return_type;
     std::vector<Parameter> params;
 };
 
-enum UML_Class_Abbrev_Mode { NOABBREV, NO_PARAM_TYPES, NO_PARAMS, NO_TYPES,
+enum UML_Class_Abbrev_Mode { NOABBREV = 1, NO_PARAM_TYPES, NO_PARAMS, NO_TYPES,
                              CLASS_NAME_ONLY};
 enum UML_Class_Edit_Type { EDIT_CLASS_NAME, EDIT_ATTRIBUTES, EDIT_METHODS};
 
 
 class ClassShape: public RectangleShape {
+    Q_OBJECT
+
     public:
         ClassShape();
+        virtual ~ClassShape() { }
+
+        QString getClassNameAreaText();
+        QString getClassAttributesAreaText();
+        QString getClassMethodsAreaText();
+
+        void setEditDialog(EditUmlClassInfoDialog *editDialog);
 
         virtual void initWithXMLProperties(Canvas *canvas,
                 const QDomElement& node, const QString& ns);
-        QDomElement to_QDomElement(const unsigned int subset,
+        virtual QDomElement to_QDomElement(const unsigned int subset,
                 QDomDocument& doc);
 
         void middle_click(const int& mouse_x, const int& mouse_y);
@@ -123,15 +136,50 @@ class ClassShape: public RectangleShape {
             mode = newMode;
         }
         virtual int get_min_width(void);
-        //QT virtual void change_label(void);
-        void update_contents(UML_Class_Edit_Type, 
+        virtual void change_label(void);//QT
+        void update_contents(UML_Class_Edit_Type,
                 const std::vector<QString>& lines,
                 const bool store_undo = true);
+
+        virtual QPainterPath buildPainterPath(void);
+        virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
+
+        /**
+          * Overrided, to specify how many levels of detail your shape has.
+         */
+        virtual uint levelsOfDetail(void) const;
+
+        /**
+          * Overrided, to specify the size that your shape should be
+          * expanded to at each detail level.  The base level is 1.  Any
+          * subsequent levels will be 2, 3, ...
+         */
+        virtual QSizeF sizeForDetailLevel(uint level);
+
+    public slots:
+        void classNameAreaChanged();
+        void classAttributesAreaChanged();
+        void classMethodsAreaChanged();
+    protected:
+        virtual QAction *buildAndExecContextMenu(QGraphicsSceneMouseEvent *event, QMenu& menu);
+        //virtual void mousePressEvent ( QGraphicsSceneMouseEvent * event );
     private:
+
+        EditUmlClassInfoDialog *m_editDialog;
+
         QString class_name;
-                QString class_stereotype;
+        QString class_stereotype;
         std::vector<Attribute> attributes;
-        std::vector<Method> methods;      
+        std::vector<Method> methods;
+
+        QString classNameAreaText;
+        QString classAttributesAreaText;
+        QString classMethodsAreaText;
+
+        int classWidth;
+        int classNameSectionHeight;
+        int classAttributesSectionHeight;
+        int classMethodsSectionHeight;
 
         bool mode_changed_manually;
         UML_Class_Abbrev_Mode mode;
@@ -155,6 +203,19 @@ class ClassShape: public RectangleShape {
         int class_name_section_size;
         int attr_section_size;
         int method_section_size;
+
+        void detailLevelChanged(void);
+        void draw(QPixmap *surface, const int x, const int y, const int type, const int w, const int h);
+
+        void refresh();
+
+        void updateAllClassAreas();
+
+        QSizeF recalculateSize();
+        int getMaxWidth();
+        int getClassNameSectionHeight();
+        int getClassAttributesSectionHeight();
+        int getClassMethodsSectionHeight();
 };
 
 

@@ -29,22 +29,30 @@
 #include <algorithm>
 #include <vector>
 
+#include <QApplication>
+#include <QPainter>
+#include <QTextEdit>
+
 #include "libdunnartcanvas/shape.h"
 #include "libdunnartcanvas/canvasitem.h"
+#include "libdunnartcanvas/graphlayout.h"
 
 #include "umlclass.h"
 
+class GraphLayout;
 
-//static void center_text(QPixmap*, int, int, int, int, const char*);
+static void center_text(QPixmap*, int, int, int, int, const char*);
 static void get_text_dimensions(QString text, int *w, int *h);
 static void get_text_width(QString text, int *w);
 
 unsigned int umlFontSize = 10;
-QFont *mono = NULL;
+QFont mono;
 
 static const int minSectHeight = 23;
 static const int classLineHeight = 12;
 
+//QTextEdit *txt1;
+//QTextEdit *txt2;
 
 ClassShape::ClassShape()
     : RectangleShape()
@@ -52,6 +60,154 @@ ClassShape::ClassShape()
     do_init();
 
     setItemType("umlClass");
+
+    classNameAreaText = "<<Stereotype>>\nClassName";
+    classAttributesAreaText = "<<Stereotype>> # attrName: AttrType";
+    classMethodsAreaText = "+ methodName(in paramA: ParamAType, out paramB: ParamBType): ReturnType";
+
+    setSizeLocked(true);
+
+    /*
+    attributes.resize(1);
+    methods.resize(1);
+    methods[0].params.resize(2);
+    class_stereotype = "Stereotype";
+    class_name = "ClassName";
+
+    attributes[0].accessModifier = PROTECTED;
+    attributes[0].name = "attrName";
+    attributes[0].type = "AttrType";
+    attributes[0].stereotype = "Stereotype";
+
+    methods[0].accessModifier = PUBLIC;
+    methods[0].name = "methodName";
+    methods[0].return_type = "ReturnType";
+
+    methods[0].params[0].name = "paramA";
+    methods[0].params[0].type = "ParamAType";
+    methods[0].params[0].mode = PARAM_IN;
+    methods[0].params[1].name = "paramB";
+    methods[0].params[1].type = "ParamBType";
+    methods[0].params[1].mode = PARAM_OUT;
+    updateAllClassAreas();*/
+
+}
+
+void ClassShape::setEditDialog(EditUmlClassInfoDialog *editDialog)
+{
+    m_editDialog = editDialog;
+}
+
+QString ClassShape::getClassNameAreaText()
+{
+    return classNameAreaText;
+}
+
+QString ClassShape::getClassAttributesAreaText()
+{
+    return classAttributesAreaText;
+}
+
+QString ClassShape::getClassMethodsAreaText()
+{
+    return classMethodsAreaText;
+}
+
+/*
+void ClassShape::mousePressEvent ( QGraphicsSceneMouseEvent * event )
+{
+    std::cout << "HERE" << std::endl;
+
+    disconnect(m_editDialog->getClassNameArea(), 0, 0, 0);
+    disconnect(m_editDialog->getClassAttributesArea(), 0, 0, 0);
+    disconnect(m_editDialog->getClassMethodsArea(), 0, 0, 0);
+
+    connect( m_editDialog->getClassNameArea(), SIGNAL( textChanged() ), this, SLOT( text_changed() ));
+    connect( m_editDialog->getClassAttributesArea(), SIGNAL( textChanged() ), this, SLOT( text_changed() ));
+    connect( m_editDialog->getClassMethodsArea(), SIGNAL( textChanged() ), this, SLOT( text_changed() ));
+
+    QGraphicsItem::mousePressEvent(event);
+}*/
+
+QPainterPath ClassShape::buildPainterPath(void)
+{
+    std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    QPainterPath painter_path;
+    QRectF classRectangle (QPointF(-width() / 2, -height() / 2), QPointF(width() / 2, height() / 2));
+    painter_path.addRect(classRectangle);
+
+    if (isSelected())
+    {
+        std::cout << "HERE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+        painter_path.moveTo(QPointF(-width() / 2, -height() / 2 + classNameSectionHeight + 10));
+        painter_path.lineTo(QPointF(width() / 2, -height() / 2 + classNameSectionHeight + 10));
+        painter_path.moveTo(QPointF(-width() / 2, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 20));
+        painter_path.lineTo(QPointF(width() / 2, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 20));
+    }
+    else
+    {
+        painter_path.moveTo(QPointF(-width() / 2, -height() / 6));
+        painter_path.lineTo(QPointF(width() / 2, -height() / 6));
+
+        painter_path.moveTo(QPointF(-width() / 2, height() / 6));
+        painter_path.lineTo(QPointF(width() / 2, height() / 6));
+    }
+    return painter_path;
+}
+
+void ClassShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
+{
+    /*
+    QPainterPath painter_path;
+    QRectF classRectangle (QPointF(-width() / 2, -height() / 2), QPointF(width() / 2, height() / 2));
+    painter_path.addRect(classRectangle);
+
+    painter_path.moveTo(QPointF(-width() / 2, -height() / 2 + classNameSectionHeight + 10));
+    painter_path.lineTo(QPointF(width() / 2, -height() / 2 + classNameSectionHeight + 10));
+    painter_path.moveTo(QPointF(-width() / 2, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 20));
+    painter_path.lineTo(QPointF(width() / 2, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 20));
+
+    setPainterPath(painter_path);*/
+
+    // Call the parent paint method, to draw the node and label
+    ShapeObj::paint(painter, option, widget);
+
+    painter->setPen(Qt::black);
+    if (canvas())
+    {
+        painter->setFont(canvas()->canvasFont());
+    }
+    painter->setRenderHint(QPainter::TextAntialiasing, true);
+
+    QRectF classNameRectangle(QPointF(-width() / 2 + 5, -height() / 2 + 5), QSizeF(qreal(classWidth), qreal(classNameSectionHeight)));
+    QRectF classAttributesRectangle(QPointF(-width() / 2 + 5, -height() / 2 + classNameSectionHeight + 15), QSizeF(qreal(classWidth), qreal(classAttributesSectionHeight)));
+    QRectF classMethodsRectangle(QPointF(-width() / 2 + 5, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 25), QSizeF(qreal(classWidth), qreal(classMethodsSectionHeight)));
+
+    painter->drawText(classNameRectangle, Qt::AlignTop | Qt::AlignHCenter, classNameAreaText);
+    painter->drawText(classAttributesRectangle, Qt::AlignTop, classAttributesAreaText);
+    painter->drawText(classMethodsRectangle, Qt::AlignTop, classMethodsAreaText);
+
+    std::cout << "Paint" << std::endl;
+}
+
+QAction *ClassShape::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
+        QMenu& menu)
+{
+
+    if (!menu.isEmpty())
+    {
+        menu.addSeparator();
+    }
+    QAction* editClassInfo = menu.addAction(tr("Edit UML Class Information"));
+
+    QAction *action = ShapeObj::buildAndExecContextMenu(event, menu);
+
+    if (action == editClassInfo)
+    {
+        m_editDialog->show();
+    }
+
+    return action;
 }
 
 void ClassShape::initWithXMLProperties(Canvas *canvas,
@@ -60,39 +216,54 @@ void ClassShape::initWithXMLProperties(Canvas *canvas,
     // Call equivalent superclass method.
     RectangleShape::initWithXMLProperties(canvas, node, ns);
 
+    std::cout << "XML___DO_______INIT" << std::endl;
     do_init();
 
     /* load class name, params, and methods from xml */
     QDomNodeList children = node.childNodes();
+
+    std::cout << "Children Length: " << children.length() << std::endl;
 
     for (int i = 0; i < children.length(); ++i)
     {
         QDomElement element = children.item(i).toElement();
         QString name = element.nodeName();
 
+        std::cout << "Element Name: " << name.toStdString() << std::endl;
         if (name == "class_name")
         {
             class_name = element.text();
+            std::cout << "class_name: " << class_name.toStdString() << std::endl;
         }
         else if (name == "class_stereotype")
         {
             class_stereotype = element.text();
+            std::cout << "class_stereotype: " << class_stereotype.toStdString() << std::endl;
         }
         else if (name == "mode")
         {
             mode = UML_Class_Abbrev_Mode(element.text().toInt());
+            std::cout << "mode: " << mode << std::endl;
         }
-        else if (name == "detailLevel")
+        else if (name == "class_width")
         {
-            //QT m_detail_level = element.text().toInt();
+            classWidth = element.text().toInt();
+            std::cout << "classWidth: " << classWidth << std::endl;
+        }
+        else if (name == "name_section_height")
+        {
+            classNameSectionHeight = element.text().toInt();
+            std::cout << "classNameSectionHeight: " << classNameSectionHeight << std::endl;
         }
         else if (name == "attr_section_height")
         {
-            attr_section_size = element.text().toInt();
+            classAttributesSectionHeight = element.text().toInt();
+            std::cout << "classAttributesSectionHeight: " << classAttributesSectionHeight << std::endl;
         }
         else if (name == "method_section_height")
         {
-            method_section_size = element.text().toInt();
+            classMethodsSectionHeight = element.text().toInt();
+            std::cout << "classMethodsSectionHeight: " << classMethodsSectionHeight << std::endl;
         }
         else if (name == "attribute")
         {   
@@ -103,23 +274,29 @@ void ClassShape::initWithXMLProperties(Canvas *canvas,
                 attributes[attributes.size()-1].stereotype =
                         element.attribute("stereotype");
             }
-            attributes[attributes.size()-1].is_public =
-                    (element.attribute("private") == "no");
+            attributes[attributes.size()-1].accessModifier =
+                    ACCESS_MODIFIER(element.attribute("accessModifier").toInt());
+            std::cout << "attributes accessModifier: " << attributes[attributes.size()-1].accessModifier << std::endl;
             attributes[attributes.size()-1].name = 
                     element.attribute("name");
+            std::cout << "attributes name: " << attributes[attributes.size()-1].name.toStdString() << std::endl;
             attributes[attributes.size()-1].type = 
                     element.attribute("type");
+            std::cout << "attributes type: " << attributes[attributes.size()-1].type.toStdString() << std::endl;
         }
         else if (name == "method")
         {
             /* makes assumption properties are in order */      
             methods.resize(methods.size()+1);
-            methods[methods.size()-1].is_public =
-                    (element.attribute("private") == "no");
+            methods[methods.size()-1].accessModifier =
+                    ACCESS_MODIFIER(element.text().toInt());
+            std::cout << "methods accessModifier: " << methods[methods.size()-1].accessModifier << std::endl;
             methods[methods.size()-1].name = 
                     element.attribute("name");
+            std::cout << "methods name: " << methods[methods.size()-1].name.toStdString() << std::endl;
             methods[methods.size()-1].return_type = 
                     element.attribute("return_type");
+            std::cout << "methods return_type: " << methods[methods.size()-1].return_type.toStdString() << std::endl;
 
             QDomNodeList params = element.childNodes();
 
@@ -145,28 +322,227 @@ void ClassShape::initWithXMLProperties(Canvas *canvas,
                     }
                     p->name = param.attribute("name");
                     p->type = param.attribute("type");
+                    std::cout << "methods param name: " << p->name.toStdString() << std::endl;
+                    std::cout << "methods param type: " << p->type.toStdString() << std::endl;
+                    std::cout << "methods param mode: " << p->mode << std::endl;
                 }
+            }
+        }
+    }
+    updateAllClassAreas();
+
+    QPainterPath painter_path;
+    QRectF classRectangle (QPointF(-width() / 2, -height() / 2), QPointF(width() / 2, height() / 2));
+    painter_path.addRect(classRectangle);
+
+    painter_path.moveTo(QPointF(-width() / 2, -height() / 2 + classNameSectionHeight + 10));
+    painter_path.lineTo(QPointF(width() / 2, -height() / 2 + classNameSectionHeight + 10));
+    painter_path.moveTo(QPointF(-width() / 2, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 20));
+    painter_path.lineTo(QPointF(width() / 2, -height() / 2 + classNameSectionHeight + classAttributesSectionHeight + 20));
+
+    setPainterPath(painter_path);
+}
+
+void ClassShape::updateAllClassAreas()
+{
+    classNameAreaText = "";
+    if (class_name.isEmpty())
+    {
+        class_stereotype = "";
+    }
+    else
+    {
+        if (!class_stereotype.isEmpty())
+        {
+            classNameAreaText = "<<" + class_stereotype + ">>\n";
+        }
+        classNameAreaText += class_name;
+    }
+
+    classAttributesAreaText = "";
+    for (int i = 0; i < attributes.size(); i++)
+    {
+        if (attributes[i].name.isEmpty())
+        {
+            attributes[i].stereotype = "";
+            attributes[i].accessModifier = DEFAULT;
+            attributes[i].type = "";
+
+            if (i == attributes.size() - 1)
+            {
+                classAttributesAreaText = classAttributesAreaText.trimmed();
+            }
+        }
+        else
+        {
+            if (!attributes[i].stereotype.isEmpty())
+            {
+                classAttributesAreaText += "<<" + attributes[i].stereotype + ">> ";
+            }
+            if (attributes[i].accessModifier == PRIVATE)
+            {
+                classAttributesAreaText += "- ";
+            }
+            else if (attributes[i].accessModifier == PROTECTED)
+            {
+                classAttributesAreaText += "# ";
+            }
+            else if (attributes[i].accessModifier == PUBLIC)
+            {
+                classAttributesAreaText += "+ ";
+            }
+            classAttributesAreaText += attributes[i].name;
+            if (!attributes[i].type.isEmpty())
+            {
+                classAttributesAreaText += ": " + attributes[i].type;
+            }
+            if (i != attributes.size() - 1)
+            {
+                classAttributesAreaText += "\n";
+            }
+        }
+    }
+
+    classMethodsAreaText = "";
+    for (int i = 0; i < methods.size(); i++)
+    {
+        QString parameterListText("");
+        for (int j = 0; j < methods[i].params.size(); j++)
+        {
+            if (methods[i].params[j].name.isEmpty())
+            {
+                methods[i].params[j].type = "";
+                methods[i].params[j].mode = UNSPECIFIED;
+
+                if (j == methods[i].params.size() - 1)
+                {
+                   parameterListText = parameterListText.left(parameterListText.length() - 2);
+                }
+            }
+            else
+            {
+                if (methods[i].params[j].mode == PARAM_IN)
+                {
+                    parameterListText += "in ";
+                }
+                else if (methods[i].params[j].mode == PARAM_OUT)
+                {
+                    parameterListText += "out ";
+                }
+                parameterListText += methods[i].params[j].name;
+                if (!methods[i].params[j].type.isEmpty())
+                {
+                    parameterListText += ": " + methods[i].params[j].type;
+                }
+                if (j != methods[i].params.size() - 1)
+                {
+                    parameterListText += ", ";
+                }
+            }
+        }
+
+        if (methods[i].name.isEmpty())
+        {
+            methods[i].accessModifier = DEFAULT;
+            methods[i].params.resize(0);
+            methods[i].return_type = "";
+
+            if (i == methods.size() - 1)
+            {
+                classMethodsAreaText = classMethodsAreaText.trimmed();
+            }
+        }
+        else
+        {
+            if (methods[i].accessModifier == PRIVATE)
+            {
+                classMethodsAreaText += "- ";
+            }
+            else if (methods[i].accessModifier == PROTECTED)
+            {
+                classMethodsAreaText += "# ";
+            }
+            else if (methods[i].accessModifier == PUBLIC)
+            {
+                classMethodsAreaText += "+ ";
+            }
+            classMethodsAreaText += methods[i].name + "(";
+            if (!parameterListText.isEmpty())
+            {
+                classMethodsAreaText += parameterListText;
+            }
+            classMethodsAreaText += ")";
+            if (!methods[i].return_type.isEmpty())
+            {
+                classMethodsAreaText += ": " + methods[i].return_type;
+            }
+            if (i != methods.size() - 1)
+            {
+                classMethodsAreaText += "\n";
             }
         }
     }
 }
 
+/**
+  * Overrided, to specify how many levels of detail your shape has.
+ */
+uint ClassShape::levelsOfDetail(void) const
+{
+    return 5;
+}
 
-#if 0
-void UMLClass::change_label(void)
+/**
+  * Overrided, to specify the size that your shape should be
+  * expanded to at each detail level.  The base level is 1.  Any
+  * subsequent levels will be 2, 3, ...
+  * NOABBREV = 1, NO_PARAM_TYPES, NO_PARAMS, NO_TYPES, CLASS_NAME_ONLY
+ */
+QSizeF ClassShape::sizeForDetailLevel(uint level)
+{
+    if (level == CLASS_NAME_ONLY)
+    {
+        qDebug("CLASS_NAME_ONLY");
+        return QSizeF(80, 60);
+    }
+    else if (level == NO_TYPES)
+    {
+        qDebug("NO_TYPES");
+        return QSizeF(100, 80);
+    }
+    else if (level == NO_PARAMS)
+    {
+        qDebug("NO_PARAMS");
+        return QSizeF(120, 100);
+    }
+    else if (level == NO_PARAM_TYPES)
+    {
+        qDebug("NO_PARAM_TYPES");
+        return QSizeF(140, 120);
+    }
+    else
+    {
+        qDebug("NOABBREV");
+        return QSizeF(160, 140);
+    }
+}
+
+void ClassShape::change_label(void)
 {
     do_edit(EDIT_CLASS_NAME);
 }
 
-
+#if 0
 //middle click will open a text box for editing, section edited depends on
 //mouse co-ordinates
-void UMLClass::middle_click(const int& mouse_x, const int& mouse_y)
+void ClassShape::middle_click(const int& mouse_x, const int& mouse_y)
 {
     if (mode == CLASS_NAME_ONLY)
         do_edit(EDIT_CLASS_NAME);
     else
     {
+        // ??? ypos() === CanvasItem::boundingRect().center().y()
+        qreal ypos = CanvasItem::boundingRect().center().y();
         if (mouse_y - ypos  - this->get_parent()->get_absypos() < (int) get_class_name_section_height())
             do_edit(EDIT_CLASS_NAME);
         else if (mouse_y - ypos - this->get_parent()->get_absypos() < (int) get_class_name_section_height() +
@@ -178,15 +554,418 @@ void UMLClass::middle_click(const int& mouse_x, const int& mouse_y)
 }
 #endif
 
+void ClassShape::refresh()
+{
+    setSize(recalculateSize());
+    canvas()->layout()->setRestartFromDunnart();
+    update(CanvasItem::boundingRect());
+    canvas()->repositionAndShowSelectionResizeHandles(true);
+}
+
+void ClassShape::classNameAreaChanged()
+{
+    std::cout << "Inside classNameAreaChanged()" << std::endl;
+
+    QString tempClassNameAreaText(m_editDialog->getClassNameArea()->toPlainText().trimmed());
+
+    if (tempClassNameAreaText.startsWith("<<") && tempClassNameAreaText.contains(">>"))
+    {
+        class_stereotype = tempClassNameAreaText.mid(2, tempClassNameAreaText.indexOf(">>") - 2);
+        class_name = tempClassNameAreaText.mid(tempClassNameAreaText.indexOf(">>") + 2).simplified().replace(" ", "_");
+    }
+    else if (!tempClassNameAreaText.contains("<") && !tempClassNameAreaText.contains(">"))
+    {
+        class_stereotype = "";
+        class_name = tempClassNameAreaText.simplified().replace(" ", "_");;
+    }
+    else {
+        class_stereotype = "";
+        class_name = "";
+    }
+
+    classNameAreaText = "";
+    if (class_name.isEmpty())
+    {
+        class_stereotype = "";
+    }
+    else
+    {
+        if (!class_stereotype.isEmpty())
+        {
+            classNameAreaText = "<<" + class_stereotype + ">>\n";
+        }
+        classNameAreaText += class_name;
+    }
+
+
+    std::cout << "Class Stereotype: " << class_stereotype.toStdString() << std::endl;
+    std::cout << "Class Name: " << class_name.toStdString() << std::endl;
+    std::cout << "Class Name Area has been updated" << std::endl;
+
+    refresh();
+}
+
+void ClassShape::classAttributesAreaChanged()
+{
+    std::cout << "Inside classAttributesAreaChanged()" << std::endl;
+
+    QString tempClassAttributesAreaText(m_editDialog->getClassAttributesArea()->toPlainText().trimmed());
+
+    unsigned int i;
+
+    if (tempClassAttributesAreaText.isEmpty())
+    {
+        attributes.resize(0);
+        classAttributesAreaText = "";
+        refresh();
+        return;
+    }
+    else
+    {
+        attributes.resize(tempClassAttributesAreaText.count("\n") + 1);
+    }
+
+    QStringList attributeList = tempClassAttributesAreaText.split("\n");
+    classAttributesAreaText = "";
+
+    for (i = 0; i < attributeList.length(); i++)
+    {
+        QString currentAttribute(attributeList.value(i).trimmed());
+
+        if (currentAttribute.startsWith("<<") && currentAttribute.contains(">>"))
+        {
+            attributes[i].stereotype = currentAttribute.mid(2, currentAttribute.indexOf(">>") - 2);
+            currentAttribute = currentAttribute.mid(currentAttribute.indexOf(">>") + 2).trimmed();
+        }
+        else
+        {
+            attributes[i].stereotype = "";
+        }
+
+        if (currentAttribute.startsWith("+") || currentAttribute.startsWith("-") || currentAttribute.startsWith("#"))
+        {
+            attributes[i].accessModifier = currentAttribute.startsWith("+") ? PUBLIC : currentAttribute.startsWith("-") ? PRIVATE : PROTECTED;
+            currentAttribute = currentAttribute.mid(1).trimmed();
+        }
+        else {
+            attributes[i].accessModifier = DEFAULT;
+        }
+
+        if (!currentAttribute.contains(":"))
+        {
+            attributes[i].name = currentAttribute.simplified().replace(" ", "_");
+            attributes[i].type = "";
+        }
+        else if (!currentAttribute.startsWith(":") && !currentAttribute.endsWith(":"))
+        {
+            attributes[i].name = currentAttribute.mid(0, currentAttribute.indexOf(":")).simplified().replace(" ", "_");
+            attributes[i].type = currentAttribute.mid(currentAttribute.indexOf(":") + 1).simplified().replace(" ", "_");
+        }
+        else if (currentAttribute.endsWith(":"))
+        {
+            attributes[i].name = currentAttribute.mid(0, currentAttribute.indexOf(":")).simplified().replace(" ", "_");
+            attributes[i].type = "";
+        }
+        else
+        {
+            attributes[i].name = "";
+            attributes[i].type = "";
+        }
+
+        if (currentAttribute.contains("<") || currentAttribute.contains(">"))
+        {
+            attributes[i].name = "";
+            attributes[i].type = "";
+        }
+
+        if (attributes[i].name.isEmpty())
+        {
+            attributes[i].stereotype = "";
+            attributes[i].accessModifier = DEFAULT;
+            attributes[i].type = "";
+
+            if (i == attributeList.length() - 1)
+            {
+                classAttributesAreaText = classAttributesAreaText.trimmed();
+            }
+        }
+        else
+        {
+            if (!attributes[i].stereotype.isEmpty())
+            {
+                classAttributesAreaText += "<<" + attributes[i].stereotype + ">> ";
+            }
+            if (attributes[i].accessModifier == PRIVATE)
+            {
+                classAttributesAreaText += "- ";
+            }
+            else if (attributes[i].accessModifier == PROTECTED)
+            {
+                classAttributesAreaText += "# ";
+            }
+            else if (attributes[i].accessModifier == PUBLIC)
+            {
+                classAttributesAreaText += "+ ";
+            }
+            classAttributesAreaText += attributes[i].name;
+            if (!attributes[i].type.isEmpty())
+            {
+                classAttributesAreaText += ": " + attributes[i].type;
+            }
+            if (i != attributeList.length() - 1)
+            {
+                classAttributesAreaText += "\n";
+            }
+        }
+
+        std::cout << "Attribute Stereotype: " << attributes[i].stereotype.toStdString() << std::endl;
+        std::cout << "Attribute Access Modifier: " << attributes[i].accessModifier << std::endl;
+        std::cout << "Attribute Name: " << attributes[i].name.toStdString() << std::endl;
+        std::cout << "Attribute Type: " << attributes[i].type.toStdString() << std::endl;
+
+    }
+
+    std::cout << "Attributes Count: " << attributeList.length() << std::endl;
+    std::cout << "Class Attributes Area has been updated" << std::endl;
+
+    refresh();
+}
+
+void ClassShape::classMethodsAreaChanged()
+{
+    std::cout << "Inside classMethodsAreaChanged()" << std::endl;
+
+    QString tempClassMethodsAreaText(m_editDialog->getClassMethodsArea()->toPlainText().trimmed());
+
+    unsigned int i, j;
+
+    if (tempClassMethodsAreaText.isEmpty())
+    {
+        classMethodsAreaText = "";
+        methods.resize(0);
+        refresh();
+        return;
+    }
+    else
+    {
+        methods.resize(tempClassMethodsAreaText.count("\n") + 1);
+    }
+
+    QStringList methodList = tempClassMethodsAreaText.split("\n");
+    classMethodsAreaText = "";
+
+    for (i = 0; i < methodList.length(); i++)
+    {
+        QString currentMethod(methodList.value(i).trimmed());
+
+        if (currentMethod.startsWith("+") || currentMethod.startsWith("-") || currentMethod.startsWith("#"))
+        {
+            methods[i].accessModifier = currentMethod.startsWith("+") ? PUBLIC : currentMethod.startsWith("-") ? PRIVATE : PROTECTED;
+            currentMethod = currentMethod.mid(1).trimmed();
+        }
+        else {
+            methods[i].accessModifier = DEFAULT;
+        }
+
+        QString parameterListText("");
+
+        if (currentMethod.contains("(") && currentMethod.contains(")") && !currentMethod.startsWith("("))
+        {
+            methods[i].name = currentMethod.left(currentMethod.indexOf("(")).simplified().replace(" ", "_");
+            currentMethod = currentMethod.mid(currentMethod.indexOf("("));
+
+            QStringList parameterTempList = currentMethod.mid(1, currentMethod.indexOf(")") - 1).trimmed().split(",");
+            QStringList parameterList;
+
+            for (j = 0; j < parameterTempList.length(); j++)
+            {
+                QString tempParameter(parameterTempList.value(j).trimmed());
+                if (!tempParameter.isEmpty())
+                {
+                    parameterList.append(tempParameter);
+                }
+            }
+
+            methods[i].params.resize(parameterList.length());
+
+            for (j = 0; j < parameterList.length(); j++)
+            {
+                QString currentParameter(parameterList.value(j));
+
+                if (currentParameter.toLower().startsWith("in "))
+                {
+                    methods[i].params[j].mode = PARAM_IN;
+                    currentParameter = currentParameter.mid(3).trimmed();
+                }
+                else if (currentParameter.toLower().startsWith("out "))
+                {
+                    methods[i].params[j].mode = PARAM_OUT;
+                    currentParameter = currentParameter.mid(4).trimmed();
+                }
+                else
+                {
+                    methods[i].params[j].mode = UNSPECIFIED;
+                }
+
+                if (!currentParameter.contains(":"))
+                {
+                    methods[i].params[j].name = currentParameter.simplified().replace(" ", "_");
+                    methods[i].params[j].type = "";
+                }
+                else if (!currentParameter.startsWith(":") && !currentParameter.endsWith(":"))
+                {
+                    methods[i].params[j].name = currentParameter.mid(0, currentParameter.indexOf(":")).simplified().replace(" ", "_");
+                    methods[i].params[j].type = currentParameter.mid(currentParameter.indexOf(":") + 1).simplified().replace(" ", "_");
+                }
+                else if (currentParameter.endsWith(":"))
+                {
+                    methods[i].params[j].name = currentParameter.mid(0, currentParameter.indexOf(":")).simplified().replace(" ", "_");
+                    methods[i].params[j].type = "";
+                }
+                else
+                {
+                    methods[i].params[j].name = "";
+                    methods[i].params[j].type = "";
+                    methods[i].params[j].mode = UNSPECIFIED;
+                }
+
+                if (methods[i].params[j].name.isEmpty())
+                {
+                    methods[i].params[j].type = "";
+                    methods[i].params[j].mode = UNSPECIFIED;
+
+                    if (j == parameterList.length() - 1)
+                    {
+                       parameterListText = parameterListText.left(parameterListText.length() - 2);
+                    }
+                }
+                else
+                {
+                    if (methods[i].params[j].mode == PARAM_IN)
+                    {
+                        parameterListText += "in ";
+                    }
+                    else if (methods[i].params[j].mode == PARAM_OUT)
+                    {
+                        parameterListText += "out ";
+                    }
+                    parameterListText += methods[i].params[j].name;
+                    if (!methods[i].params[j].type.isEmpty())
+                    {
+                        parameterListText += ": " + methods[i].params[j].type;
+                    }
+                    if (j != parameterList.length() - 1)
+                    {
+                        parameterListText += ", ";
+                    }
+                }
+
+                std::cout << "Method Parameter Mode: " << methods[i].params[j].mode << std::endl;
+                std::cout << "Method Parameter Name: " << methods[i].params[j].name.toStdString() << std::endl;
+                std::cout << "Method Parameter Type: " << methods[i].params[j].type.toStdString() << std::endl;
+
+            }
+
+            currentMethod = currentMethod.mid(currentMethod.indexOf(")") + 1);
+
+            if (currentMethod.isNull() || !currentMethod.contains(":") || currentMethod.trimmed().endsWith(":"))
+            {
+                methods[i].return_type = "";
+            }
+            else
+            {
+                methods[i].return_type = currentMethod.mid(currentMethod.indexOf(":") + 1).simplified().replace(" ", "_");
+            }
+        }
+        else
+        {
+            methods[i].name = "";
+            methods[i].params.resize(0);
+            methods[i].return_type = "";
+            methods[i].accessModifier = DEFAULT;
+        }
+
+        if (methods[i].name.isEmpty())
+        {
+            methods[i].accessModifier = DEFAULT;
+            methods[i].params.resize(0);
+            methods[i].return_type = "";
+
+            if (i == methodList.length() - 1)
+            {
+                classMethodsAreaText = classMethodsAreaText.trimmed();
+            }
+        }
+        else
+        {
+            if (methods[i].accessModifier == PRIVATE)
+            {
+                classMethodsAreaText += "- ";
+            }
+            else if (methods[i].accessModifier == PROTECTED)
+            {
+                classMethodsAreaText += "# ";
+            }
+            else if (methods[i].accessModifier == PUBLIC)
+            {
+                classMethodsAreaText += "+ ";
+            }
+            classMethodsAreaText += methods[i].name + "(";
+            if (!parameterListText.isEmpty())
+            {
+                classMethodsAreaText += parameterListText;
+            }
+            classMethodsAreaText += ")";
+            if (!methods[i].return_type.isEmpty())
+            {
+                classMethodsAreaText += ": " + methods[i].return_type;
+            }
+            if (i != methodList.length() - 1)
+            {
+                classMethodsAreaText += "\n";
+            }
+        }
+
+        std::cout << "Method Access Modifier: " << methods[i].accessModifier << std::endl;
+        std::cout << "Method Name: " << methods[i].name.toStdString() << std::endl;
+        std::cout << "Method Parameter Count: " << methods[i].params.size() << std::endl;
+        std::cout << "Method Return Type: " << methods[i].return_type.toStdString() << std::endl;
+    }
+
+    std::cout << "Methods Count: " << methodList.length() << std::endl;
+    std::cout << "Class Methods Area has been updated" << std::endl;
+
+    refresh();
+}
+
 //after editing, parse the contents of the text area and update class contents
 //no seperate tokeniser. If the grammars are extended it may be worth using one.
 //information that could not be parsed is simply left blank.
 void ClassShape::update_contents(UML_Class_Edit_Type edit_type, const std::vector<QString>& lines, const bool store_undo)
 {
+    class_name = lines[0];
+    QRectF qrf = CanvasItem::boundingRect();
+    /*std::cout << qrf.width() << " " << qrf.height() << std::endl;
+    std::cout << this->size().width() << " " << this->size().height() << std::endl;*/
+
+    //check to see if a resize is needed
+    /*
+    int new_width, new_height;
+    determine_best_dimensions(&new_width, &new_height);
+    setPosAndSize(QPointF(qrf.center().x(), qrf.center().y()), QSizeF(new_width+16, new_height));
+    */
+    //QT mathematicallyRepositionLabels();
+    //canvas()->layout()->setRestartFromDunnart();
+    canvas()->layout()->setRestartFromDunnart();
+    update(qrf);
+    std::cout << " has been updated" << std::endl;
+    return;
+
     Q_UNUSED (store_undo)
     if (edit_type == EDIT_CLASS_NAME)
-	{
-                char *s = strdup(lines[0].toUtf8().constData());
+    {
+        std::cout << "Class Name";
+        char *s = strdup(lines[0].toUtf8().constData());
 		if (*s == '<' && *(s+1) == '<')
 		{
 			s+=2;
@@ -385,19 +1164,27 @@ void ClassShape::update_contents(UML_Class_Edit_Type edit_type, const std::vecto
                 methods[i].return_type = "";
         }
     }
-#if 0
+//#if 0
     //QT
 
+    qrf = CanvasItem::boundingRect();
+    /*std::cout << qrf.width() << " " << qrf.height() << std::endl;
+    std::cout << this->size().width() << " " << this->size().height() << std::endl;*/
+
     //check to see if a resize is needed
+    /*
     int new_width, new_height;
     determine_best_dimensions(&new_width, &new_height);
-    setPosAndSize(QPointF(xpos, ypos), QSizeF(new_width+16, new_height));
-#endif
-#if 0
-    mathematicallyRepositionLabels();
-    GraphLayout::getInstance()->setRestartFromDunnart();
-    repaint_canvas();
-#endif
+    setPosAndSize(QPointF(qrf.center().x(), qrf.center().y()), QSizeF(new_width+16, new_height));
+    */
+    //QT mathematicallyRepositionLabels();
+    //canvas()->layout()->setRestartFromDunnart();
+    canvas()->layout()->setRestartFromDunnart();
+    update(qrf);
+    std::cout << " has been updated" << std::endl;
+    //GraphLayout::getInstance()->setRestartFromDunnart();
+    //repaint_canvas();
+//#endif
 }
 
 
@@ -407,10 +1194,12 @@ void ClassShape::do_edit(UML_Class_Edit_Type edit_type)
     Q_UNUSED (edit_type)
 #if 0
     int fypos = 0;
-    int fxpos = absxpos + (width / 2);
+    int absxpos = 0; // What is absxpos?
+    int fxpos = absxpos + (width() / 2);
     FieldLines lines;
 
-    int texth = TTF_FontHeight(mono);
+    QFontMetrics qfm(mono);
+    int texth = qfm.height();
     int textw;
     int padding = 7;
     int fheight = texth + padding;
@@ -430,6 +1219,7 @@ void ClassShape::do_edit(UML_Class_Edit_Type edit_type)
             fypos = absypos + 5;
         }
     }
+
     if (edit_type == EDIT_ATTRIBUTES)
     {
         lines.resize(attributes.size());
@@ -437,7 +1227,8 @@ void ClassShape::do_edit(UML_Class_Edit_Type edit_type)
         {
             QString str = attribute_to_string(i);
             lines[i] = str;
-            TTF_SizeText(mono, str.c_str(), &textw, NULL);
+            //TTF_SizeText(mono, str.c_str(), &textw, NULL);
+            textw = qfm.width(str);
             fwidth = qMax(fwidth, textw);
         }
         fypos = absypos + 25;
@@ -450,7 +1241,8 @@ void ClassShape::do_edit(UML_Class_Edit_Type edit_type)
         {
             QString str = method_to_string(i);
             lines[i] = str;
-            TTF_SizeText(mono, str.c_str(), &textw, NULL);
+            //TTF_SizeText(mono, str.c_str(), &textw, NULL);
+            textw = qfm.width(str);
             fwidth = qMax(fwidth, textw);
         }
         fypos = absypos + 27 + ((height - 23) / 2);
@@ -501,7 +1293,7 @@ int ClassShape::get_longest_text_width(UML_Class_Abbrev_Mode mode)
 {
     int i, j, longest = 0, width = 0;
 
-        QString s;
+    QString s;
 	
     //name of class.
 	s = class_stereotype.length() > class_name.length() ? "<<" + class_stereotype + ">>" : class_name;
@@ -560,6 +1352,7 @@ void ClassShape::determine_best_mode(void)
     if (height() < (int) get_class_name_section_height() + (HANDLE_PADDING * 2))
     {
         mode = CLASS_NAME_ONLY;
+        //m_detail_level = 5;
         //QT m_detail_level = 0;
         return;
     }
@@ -586,9 +1379,9 @@ void ClassShape::determine_small_dimensions(int *w, int *h)
 
 void ClassShape::determine_best_dimensions(int *inner_width, int *h)
 {
-    *inner_width = get_longest_text_width(mode) + 15;
+    *inner_width = get_longest_text_width(static_cast<UML_Class_Abbrev_Mode>(ShapeObj::currentDetailLevel())) + 15;
     *h = get_class_name_section_height();
-    if (mode != CLASS_NAME_ONLY)
+    if (static_cast<UML_Class_Abbrev_Mode>(ShapeObj::currentDetailLevel()) != CLASS_NAME_ONLY)
     {
         attr_section_size = qMax(classLineHeight, 
                 (int)attributes.size()*classLineHeight) + 2;
@@ -600,7 +1393,7 @@ void ClassShape::determine_best_dimensions(int *inner_width, int *h)
 
 
 #if 0
-void UMLClass::draw(QPixmap *surface, const int x, const int y,
+void ClassShape::draw(QPixmap *surface, const int x, const int y,
         const int type, const int w, const int h)
 {
 	if (!surface)
@@ -608,11 +1401,11 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
 
 	Rect::draw(surface, x, y, type, w, h);
     const QColor black = Qt::black;
-    SDL_Color SDL_black = {0x00, 0x00, 0x00, 0};
+    //SDL_Color SDL_black = {0x00, 0x00, 0x00, 0};
 
     int classSectHeight = get_class_name_section_height();
 
-    if (detailLevel > 0)
+    if (currentDetailLevel() > 0)
     {
 	    Draw_HLine(surface, x+3, y+classSectHeight, x+w-6, black);
 	    Draw_HLine(surface, x+3, y+classSectHeight+get_attr_section_height(), 
@@ -622,16 +1415,14 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
 		if (class_stereotype.length() > 0)
 		{
                         QString s = "<<" + class_stereotype + ">>";
-			center_text(surface, x+6, x+w-7, y+5, y+19, 
-						s.c_str());
-			center_text(surface, x+6, x+w-7, y+19, y+33, 
-						class_name.c_str());
+            center_text(surface, x+6, x+w-7, y+5, y+19, s);
+            center_text(surface, x+6, x+w-7, y+19, y+33, class_name);
 		}
 		else
-			center_text(surface, x+6, x+w-7, y+5, y+21, 
-						class_name.c_str());
+            center_text(surface, x+6, x+w-7, y+5, y+21,  class_name);
 
         QString s;
+        QPainter qp(surface);
         unsigned int lines = get_attr_section_height() / classLineHeight;
         for (unsigned int i = 0; (i < lines) && (i < attributes.size()); ++i)
         {
@@ -639,8 +1430,8 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
             if ((i == lines - 1) && (i < attributes.size() - 1))
             {
                 // Last line, but not the last attribute, so print "...":
-                SDL_WriteText(surface, x+15, 
-                        lineYPos, "...", &SDL_black, mono);
+                //SDL_WriteText(surface, x+15, lineYPos, "...", &SDL_black, mono);
+                qp.drawText(QPointF(x+15, lineYPos), "...");
                 break;
             }
             if (attributes[i].stereotype.length() > 0)
@@ -652,16 +1443,15 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
                 s += ":" + attributes[i].type;
             if (attributes[i].stereotype.length() > 0)
             {
-                SDL_WriteText(surface, x+6, lineYPos, s.c_str(), 
-                        &SDL_black, mono);
+                //SDL_WriteText(surface, x+6, lineYPos, s.c_str(), &SDL_black, mono);
+                qp.drawText(QPointF(x+6, lineYPos), s);
             }
             else
             {
-                SDL_WriteText(surface, x+6, lineYPos, 
-                              attributes[i].is_public ? "+" : "-",
-                              &SDL_black, mono);
-                SDL_WriteText(surface, x+15, lineYPos, 
-                              s.c_str(), &SDL_black, mono);
+               // SDL_WriteText(surface, x+6, lineYPos, attributes[i].is_public ? "+" : "-", &SDL_black, mono);
+                //SDL_WriteText(surface, x+15, lineYPos, s.c_str(), &SDL_black, mono);
+                qp.drawText(QPointF(x+6, lineYPos), attributes[i].is_public ? "+" : "-");
+                qp.drawText(QPointF(x+15, lineYPos), s);
             }
         }
         
@@ -673,8 +1463,8 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
             if ((i == lines - 1) && (i < methods.size() - 1))
             {
                 // Last line, but not the last method, so print "...":
-                SDL_WriteText(surface, x+15, lineYPos, 
-                        "...", &SDL_black, mono);
+                //SDL_WriteText(surface, x+15, lineYPos, "...", &SDL_black, mono);
+                qp.drawText(QPointF(x+15, lineYPos), "...");
                 break;
             }
             s = methods[i].name + "(";
@@ -698,10 +1488,10 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
             if (mode < NO_TYPES && methods[i].return_type.length() > 0)
                 s += ":" + methods[i].return_type;
 
-            SDL_WriteText(surface, x+6, lineYPos, 
-                    methods[i].is_public ? "+" : "-", &SDL_black, mono);
-            SDL_WriteText(surface, x+15, lineYPos, s.c_str(), 
-                    &SDL_black, mono);
+            //SDL_WriteText(surface, x+6, lineYPos, methods[i].is_public ? "+" : "-", &SDL_black, mono);
+            //SDL_WriteText(surface, x+15, lineYPos, s.c_str(), &SDL_black, mono);
+            qp.drawText(QPointF(x+6, lineYPos), methods[i].is_public ? "+" : "-");
+            qp.drawText(QPointF(x+15, lineYPos), s);
         }
     }
     else
@@ -710,14 +1500,11 @@ void UMLClass::draw(QPixmap *surface, const int x, const int y,
 		if (class_stereotype.length() > 0)
 		{
                         QString s = "<<" + class_stereotype + ">>";
-			center_text(surface, x+6, x+w-7, y+5, y+h-23, 
-						s.c_str());
-			center_text(surface, x+6, x+w-7, y+19, y+h-9, 
-						class_name.c_str());
+            center_text(surface, x+6, x+w-7, y+5, y+h-23, s);
+            center_text(surface, x+6, x+w-7, y+19, y+h-9, class_name);
 		}
 		else
-			center_text(surface, x+6, x+w-7, y+5, y+h-9, 
-						class_name.c_str());
+            center_text(surface, x+6, x+w-7, y+5, y+h-9, class_name);
     }
 
 }
@@ -732,7 +1519,7 @@ QString ClassShape::attribute_to_string(int i, UML_Class_Abbrev_Mode mode)
     else
         s = attributes[i].is_public ? "+" : "-";
     s += attributes[i].name;
-    if (mode < NO_TYPES)
+    if (static_cast<UML_Class_Abbrev_Mode>(ShapeObj::currentDetailLevel()) < NO_TYPES)
         s += ":" + attributes[i].type;
     return s;
 }
@@ -742,7 +1529,7 @@ QString ClassShape::method_to_string(int i, UML_Class_Abbrev_Mode mode)
     QString s;
     s = (methods[i].is_public ? "+" : "-") + methods[i].name + "(";
     unsigned int j;
-    if (mode < NO_PARAMS)
+    if (static_cast<UML_Class_Abbrev_Mode>(ShapeObj::currentDetailLevel()) < NO_PARAMS)
     {
         for (j = 0; j < methods[i].params.size(); j++)
         {
@@ -752,13 +1539,13 @@ QString ClassShape::method_to_string(int i, UML_Class_Abbrev_Mode mode)
             if (methods[i].params[j].mode == PARAM_OUT)
                 s += "out ";
             s += methods[i].params[j].name;
-            if (mode < NO_PARAM_TYPES)
+            if (static_cast<UML_Class_Abbrev_Mode>(ShapeObj::currentDetailLevel()) < NO_PARAM_TYPES)
                 s += ":" + methods[i].params[j].type;
         };
     }
 
     s += ")";
-    if (mode < NO_TYPES && methods[i].return_type.length() > 0)
+    if (static_cast<UML_Class_Abbrev_Mode>(ShapeObj::currentDetailLevel()) < NO_TYPES && methods[i].return_type.length() > 0)
         s += ":" + methods[i].return_type;
     return s;
 }
@@ -768,28 +1555,28 @@ QString ClassShape::class_name_to_string(bool one_line)
 	return class_stereotype.length() > 0 ? "<<" + class_stereotype + ">>" + (one_line ? "" : "\n") + class_name : class_name;
 }
 
-template <typename T>
 QDomElement newTextChild(QDomElement& node, const QString& ns, 
-        const QString& name, T arg, QDomDocument& doc)
+        const QString& name, QString arg, QDomDocument& doc)
 {
-    Q_UNUSED (ns)
-
+    /*
     QByteArray bytes;
     QDataStream o(&bytes, QIODevice::WriteOnly);
     o << arg;
-    
+    */
+    Q_UNUSED (ns)
+
     QDomElement new_node = doc.createElement(name);
-    node.appendChild(new_node);
-    
-    QDomText text = doc.createTextNode(bytes);
+
+    QDomText text = doc.createTextNode(arg);
     new_node.appendChild(text);
+
+    node.appendChild(new_node);
 
     return new_node;
 }
 
 
-QDomElement ClassShape::to_QDomElement(const unsigned int subset,
-        QDomDocument& doc)
+QDomElement ClassShape::to_QDomElement(const unsigned int subset, QDomDocument& doc)
 {
     QDomElement node = doc.createElement("dunnart:node");
 
@@ -803,45 +1590,46 @@ QDomElement ClassShape::to_QDomElement(const unsigned int subset,
     if (subset & XMLSS_IOTHER)
     {
         /* UML Class specific xml (represented as children */
-        //class name    
+        //class name
         newTextChild(node, x_dunnartNs, "class_name", class_name, doc);
-        newTextChild(node, x_dunnartNs, "class_stereotype", class_stereotype,
-                doc);
+        newTextChild(node, x_dunnartNs, "class_stereotype", class_stereotype, doc);
 
         //class mode
-        newTextChild(node, x_dunnartNs, "mode", (int) mode, doc); 
+        newTextChild(node, x_dunnartNs, "mode", QString::number((int) mode), doc);
 
         //section heights
         newTextChild(node, x_dunnartNs, 
-                "attr_section_height", attr_section_size, doc);
+                "attr_section_height", QString::number(classAttributesSectionHeight), doc);
         newTextChild(node, x_dunnartNs, 
-                "method_section_height", method_section_size, doc);
+                "method_section_height", QString::number(classMethodsSectionHeight), doc);
+        newTextChild(node, x_dunnartNs,
+                "name_section_height", QString::number(classNameSectionHeight), doc);
+        newTextChild(node, x_dunnartNs,
+                "class_width", QString::number(classWidth), doc);
         
         //attributes
         for (unsigned int i=0; i<attributes.size(); i++)
         {
-            QDomElement attr_node = doc.createElement("dunnart:attribute");
+            QDomElement attr_node = doc.createElement("attribute");
             if (attributes[i].stereotype.length() > 0)
             {
                 newProp(attr_node, "stereotype", attributes[i].stereotype);
             }
-            newProp(attr_node, "private", 
-                    attributes[i].is_public ? "no" : "yes");
+            newProp(attr_node, "accessModifier", attributes[i].accessModifier);
             newProp(attr_node, "name", attributes[i].name);
             newProp(attr_node, "type", attributes[i].type);
             node.appendChild(attr_node);
         }
         for (unsigned int i=0; i<methods.size(); i++)
         {
-            QDomElement method_node = doc.createElement("dunnart:method");
-            newProp(method_node, "private", 
-                    methods[i].is_public? "no" : "yes");
+            QDomElement method_node = doc.createElement("method");
+            newProp(method_node, "accessModifier", methods[i].accessModifier);
             newProp(method_node, "name", methods[i].name);
             newProp(method_node, "return_type", methods[i].return_type);
 
             for (unsigned int j=0; j<methods[i].params.size(); j++)
             {
-                QDomElement param_node = doc.createElement("dunnart:parameter");
+                QDomElement param_node = doc.createElement("parameter");
                 if (methods[i].params[j].mode != UNSPECIFIED)
                 {
                     newProp(param_node, "mode", 
@@ -859,25 +1647,31 @@ QDomElement ClassShape::to_QDomElement(const unsigned int subset,
 }
 
 
-#if 0
+//#if 0
 static void center_text(QPixmap* surface, const int left, const int right, 
-    const int top, const int bottom, const char* text)
+    const int top, const int bottom, const QString text)
 {
-    SDL_Color SDL_black = {0x00, 0x00, 0x00, 0};
+    //SDL_Color SDL_black = {0x00, 0x00, 0x00, 0};
     int tw, th;
     get_text_dimensions(text, &tw, &th);
-    SDL_WriteText(surface, left + (right-(left+tw))/2,
-                  top + (bottom-(top+th))/2, text, &SDL_black, mono);
+    QPainter qp(surface);
+    qp.drawText(QPointF(left + (right-(left+tw))/2, top + (bottom-(top+th))/2), text);
+    //SDL_WriteText(surface, left + (right-(left+tw))/2, top + (bottom-(top+th))/2, text, &SDL_black, mono);
+
 }
-#endif
+//#endif
 
 
 static void get_text_dimensions(QString text, int *w, int *h)
 {
-    Q_UNUSED (text)
-    Q_UNUSED (w)
-    Q_UNUSED (h)
+    //Q_UNUSED (text)
+    //Q_UNUSED (w)
+    //Q_UNUSED (h)
+
     //QT TTF_SizeText(mono, text, w, h);
+    QFontMetrics qfm(mono);
+    *w = qfm.width(text);
+    *h = qfm.height();
 }
 
 static void get_text_width(QString text, int *w)
@@ -888,18 +1682,185 @@ static void get_text_width(QString text, int *w)
 
 void ClassShape::do_init()
 {
+    std::cout << "DO_____________INIT" << std::endl;
     mode_changed_manually = false;
 
-    class_name = "Class";
-    
-    attributes.resize(0);
-    methods.resize(0);
-    mode = CLASS_NAME_ONLY;
+    classNameSectionHeight = 7;
+    classAttributesSectionHeight = 7;
+    classMethodsSectionHeight = 7;
 
-    if (!mono)
+    mode = NOABBREV;
+
+    //m_detail_level = 1;   // updated shape.h sets the default detail level as 1
+
+    //QT mono = FONT_LoadTTF("VeraMono.ttf", umlFontSize);
+    mono = QApplication::font();
+
+}
+
+QSizeF ClassShape::recalculateSize()
+{
+    std::cout << "Current Detail Level: " << currentDetailLevel() << std::endl;
+    if (currentDetailLevel() == NOABBREV)
     {
-       //QT  mono = FONT_LoadTTF("VeraMono.ttf", umlFontSize);
+        // 50 is current default height; a line is considered as 5px thick for padding section inwards.
+        return QSizeF(qreal(getMaxWidth() + 10), qreal(qMax(getClassNameSectionHeight() + getClassAttributesSectionHeight() + getClassMethodsSectionHeight() + 30, 50)));
     }
+    else
+    {
+        return shape().boundingRect().size();
+    }
+}
+
+int ClassShape::getMaxWidth()
+{
+    QFontMetrics qfm(canvas()->canvasFont());
+    int maxWidth, i, j, currentLineWidth;
+
+    if (currentDetailLevel() == NOABBREV)
+    {
+        maxWidth = qfm.width(class_name);
+
+        if (!class_stereotype.isEmpty())
+        {
+            maxWidth = qMax(maxWidth, qfm.width("<<" + class_stereotype + ">>"));
+        }
+
+        for (i = 0; i < attributes.size(); i++)
+        {
+            currentLineWidth = qfm.width(attributes[i].name);
+            if (currentLineWidth != 0 && !attributes[i].type.isEmpty())
+            {
+                currentLineWidth += qfm.width(": " + attributes[i].type);
+            }
+            if (currentLineWidth != 0 && !attributes[i].stereotype.isEmpty())
+            {
+                currentLineWidth += qfm.width("<<" + attributes[i].stereotype + ">> ");
+            }
+            if (currentLineWidth != 0 && attributes[i].accessModifier == PUBLIC)
+            {
+                currentLineWidth += qfm.width("+ ");
+            }
+            else if (currentLineWidth != 0 && attributes[i].accessModifier == PROTECTED)
+            {
+                currentLineWidth += qfm.width("# ");
+            }
+            else if (currentLineWidth != 0 && attributes[i].accessModifier == PRIVATE)
+            {
+                currentLineWidth += qfm.width("- ");
+            }
+            maxWidth = qMax(maxWidth, currentLineWidth);
+        }
+
+        for (i = 0; i < methods.size(); i++)
+        {
+            currentLineWidth = 0;
+            if (!methods[i].name.isEmpty())
+            {
+                currentLineWidth += qfm.width(methods[i].name + "()");
+            }
+            if (currentLineWidth != 0 && !methods[i].return_type.isEmpty())
+            {
+                currentLineWidth += qfm.width(": " + methods[i].return_type);
+            }
+            if (currentLineWidth != 0)
+            {
+                for (j = 0; j < methods[i].params.size(); j++)
+                {
+                    if (!methods[i].params[j].name.isEmpty())
+                    {
+                        currentLineWidth += qfm.width(methods[i].params[j].name);
+                        if (j != methods[i].params.size() - 1)
+                        {
+                            currentLineWidth += qfm.width(", ");
+                        }
+                        if (methods[i].params[j].mode == PARAM_IN)
+                        {
+                            currentLineWidth += qfm.width("in ");
+                        }
+                        else if (methods[i].params[j].mode == PARAM_OUT)
+                        {
+                            currentLineWidth += qfm.width("out ");
+                        }
+                        if (!methods[i].params[j].type.isEmpty())
+                        {
+                            currentLineWidth += qfm.width(": " + methods[i].params[j].type);
+                        }
+                    }
+                    else if (j != 1)
+                    {
+                        currentLineWidth -= qfm.width(", ");
+                    }
+                }
+            }
+            if (currentLineWidth != 0 && methods[i].accessModifier == PUBLIC)
+            {
+                currentLineWidth += qfm.width("+ ");
+            }
+            else if (currentLineWidth != 0 && methods[i].accessModifier == PROTECTED)
+            {
+                currentLineWidth += qfm.width("# ");
+            }
+            else if (currentLineWidth != 0 && methods[i].accessModifier == PRIVATE)
+            {
+                currentLineWidth += qfm.width("- ");
+            }
+            maxWidth = qMax(maxWidth, currentLineWidth);
+        }
+    }
+
+    std::cout << "Calculated Max Width: " << maxWidth << std::endl;
+    std::cout << "Current Shape Width: " << size().width() << std::endl;
+
+    return classWidth = qMax(maxWidth, 60);  // 60 (+10 = 70) is current default width;
+}
+
+int ClassShape::getClassNameSectionHeight()
+{
+    QFontMetrics qfm(canvas()->canvasFont());
+    int lineCount;
+
+    if (currentDetailLevel() == NOABBREV)
+    {
+        lineCount = class_name.isEmpty() ? 0 : class_stereotype.isEmpty() ? 1 : 2;
+    }
+    return classNameSectionHeight = qMax(lineCount * qfm.height() + (lineCount - 1) * qfm.leading(), 7);
+}
+
+int ClassShape::getClassAttributesSectionHeight()
+{
+    QFontMetrics qfm(canvas()->canvasFont());
+    int lineCount = 0;
+
+    if (currentDetailLevel() == NOABBREV)
+    {
+        for (int i = 0; i < attributes.size(); i++)
+        {
+            if(!attributes[i].name.isEmpty())
+            {
+                ++lineCount;
+            }
+        }
+    }
+    return classAttributesSectionHeight = qMax(lineCount * qfm.height() + (lineCount - 1) * qfm.leading(), 7);
+}
+
+int ClassShape::getClassMethodsSectionHeight()
+{
+    QFontMetrics qfm(canvas()->canvasFont());
+    int lineCount = 0;
+
+    if (currentDetailLevel() == NOABBREV)
+    {
+        for (int i = 0; i < methods.size(); i++)
+        {
+            if(!methods[i].name.isEmpty())
+            {
+                ++lineCount;
+            }
+        }
+    }
+    return classMethodsSectionHeight = qMax(lineCount * qfm.height() + (lineCount - 1) * qfm.leading(), 7);
 }
 
 int ClassShape::get_min_width()
@@ -910,7 +1871,7 @@ int ClassShape::get_min_width()
 }
 
 
-#if 0
+//#if 0
 void ClassShape::detailLevelChanged(void)
 {
     mode_changed_manually = true;
@@ -928,7 +1889,7 @@ void ClassShape::detailLevelChanged(void)
 
     update();
 }
-#endif
+//#endif
 
 
 unsigned int ClassShape::get_class_name_section_height(void)

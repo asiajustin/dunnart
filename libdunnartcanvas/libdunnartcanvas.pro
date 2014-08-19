@@ -37,9 +37,11 @@ FORMS = \
 	ui/createdistribution.ui \
 	ui/createseparation.ui \
 	ui/connectorproperties.ui \
-    ui/createtemplate.ui \
-    ui/shapepickerdialog.ui \
-    ui/canvasoverview.ui
+        ui/createtemplate.ui \
+        ui/shapepickerdialog.ui \
+        ui/canvasoverview.ui \
+        ui/maincanvasoverview.ui \
+        ui/searchwidget.ui
 
 SOURCES += \ 
 	FMMLayout.cpp \
@@ -80,7 +82,9 @@ SOURCES += \
 	ui/createdistribution.cpp \
 	ui/createseparation.cpp \
 	ui/connectorproperties.cpp \
-	ui/propertieseditor.cpp \
+        ui/propertieseditor.cpp \
+        ui/maincanvasoverview.cpp \
+        ui/searchwidget.cpp \
     pluginshapefactory.cpp \
     pluginfileiofactory.cpp \
     ui/shapepickerdialog.cpp \
@@ -90,7 +94,8 @@ SOURCES += \
     connectionpininfo.cpp \
     canvasapplication.cpp \
     pluginapplicationmanager.cpp \
-    ui/canvasoverview.cpp
+    ui/canvasoverview.cpp \
+    connectorlabel.cpp
 
 HEADERS += \
 	FMMLayout.h \
@@ -134,6 +139,8 @@ HEADERS += \
 	ui/createseparation.h \
 	ui/connectorproperties.h \
 	ui/propertieseditor.h \
+        ui/maincanvasoverview.h \
+        ui/searchwidget.h \
     pluginshapefactory.h \
     pluginfileiofactory.h \
     ui/shapepickerdialog.h \
@@ -146,7 +153,8 @@ HEADERS += \
     applicationplugininterface.h \
     canvasapplication.h \
     pluginapplicationmanager.h \
-    ui/canvasoverview.h
+    ui/canvasoverview.h \
+    connectorlabel.h
 
 
 displaygithash {

@@ -1925,6 +1925,40 @@ QList<CanvasItem *> Canvas::items(void) const
     return canvasItems;
 }
 
+QList<QGraphicsSvgItem *> Canvas::selectedGeneralItems(void) const
+{
+    QList<QGraphicsSvgItem *> filteredSelection;
+
+    // Filter and return just the CanvasItem-based objects.
+    foreach (QGraphicsItem *item, QGraphicsScene::selectedItems())
+    {
+        QGraphicsSvgItem *graphicsSvgItem = dynamic_cast<QGraphicsSvgItem *> (item);
+        if (graphicsSvgItem)
+        {
+            filteredSelection.push_back(graphicsSvgItem);
+        }
+    }
+
+    if (m_edit_mode == ModeConnection)
+    {
+        // In connection mode we want to allow selection of lone connectors
+        // for editing purposes, but not selection of other objects.
+        if ((filteredSelection.size() == 1) &&
+                dynamic_cast<Connector *> (filteredSelection.first()))
+        {
+            // Return the single selected connector
+            return filteredSelection;
+        }
+        else
+        {
+            // Otherwise, return no selection.
+            QList<QGraphicsSvgItem *> emptySelection;
+            return emptySelection;
+        }
+    }
+
+    return filteredSelection;
+}
 
 QList<CanvasItem *> Canvas::selectedItems(void) const
 {

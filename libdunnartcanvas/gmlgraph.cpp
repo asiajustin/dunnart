@@ -910,7 +910,7 @@ void Graph::createConnector(ogdf::edge e) {
             connectors[e] = conn;
             if(UML) {
                 if(GA.type(e)==ogdf::Graph::generalization) {
-                conn->setArrowHeadType(Connector::triangle_outline);
+                conn->setArrowHeadHeadType(Connector::triangle_outline);
                 conn->setDashedStroke(false);
                 } else {
                     conn->setDashedStroke(true);

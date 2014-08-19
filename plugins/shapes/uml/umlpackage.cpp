@@ -8,11 +8,22 @@ class GraphLayout;
 PackageShape::PackageShape() : RectangleShape()
 {
     setItemType("umlPackage");
-    m_label = "package";
     m_expanded = false;
+}
 
-    lineWidth = 20;
+void PackageShape::setupForShapePickerPreview()
+{
+    m_label = "";
+    lineWidth = 12;
     fontHeight = 0;
+}
+
+void PackageShape::setupForShapePickerDropOnCanvas()
+{
+    m_label = "package";
+    lineWidth = 46;
+    fontHeight = 20;
+    setContainmentPadding(QMarginsF(qreal(5), qreal(fontHeight + 15), qreal(5), qreal(5)));
 }
 
 QAction *PackageShape::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event, QMenu& menu)
@@ -68,30 +79,48 @@ QPainterPath PackageShape::buildPainterPath(void)
     return painter_path;
 }
 
-QString PackageShape::getLabel() const
+QString PackageShape::label() const
 {
     return m_label;
 }
 
 void PackageShape::setLabel(const QString& label)
 {
-    m_label = label;
-
-    QFontMetrics qfm(canvas()->canvasFont());
-    int realLineWidth = qfm.width(m_label);
-    int minLabelWidth = width() * 0.2 - 10;
-    int maxLabelWidth = width() * 0.8 - 10;
-    lineWidth = realLineWidth > maxLabelWidth ? maxLabelWidth : realLineWidth < minLabelWidth ? minLabelWidth : realLineWidth;
-    fontHeight = qfm.height();
+    m_label = label.simplified();
 
     update();
     canvas()->layout()->setRestartFromDunnart();
-    canvas()->repositionAndShowSelectionResizeHandles(true);
 }
 
 void PackageShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     std::cout << "UML Package: Paint" << std::endl;
+
+    if (fontHeight != 0)
+    {
+        if (width() < 70)
+        {
+            setSize(QSizeF(qreal(70), qreal(height())));
+            canvas()->repositionAndShowSelectionResizeHandles(true);
+        }
+
+        if (height() < 50)
+        {
+            setSize(QSizeF(qreal(width()), qreal(50)));
+            canvas()->repositionAndShowSelectionResizeHandles(true);
+        }
+    }
+
+    int minLabelWidth = width() * 0.2 - 10;
+    int maxLabelWidth = width() * 0.8 - 10;
+
+    if (fontHeight != 0)
+    {
+        QFontMetrics qfm(canvas()->canvasFont());
+        int realLineWidth = qfm.width(m_label);
+        lineWidth = realLineWidth > maxLabelWidth ? maxLabelWidth : realLineWidth < minLabelWidth ? minLabelWidth : realLineWidth;
+        fontHeight = qfm.height();
+    }
 
     QPainterPath painter_path;
 
@@ -119,8 +148,9 @@ void PackageShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     int drawTextFlags = Qt::AlignTop | Qt::TextSingleLine;
     QString drawTextContent(m_label);
 
-    int minLabelWidth = width() * 0.2 - 10;
-    int maxLabelWidth = width() * 0.8 - 10;
+    std::cout << "lineWidth: " << lineWidth << std::endl;
+    std::cout << "minLabelWidth: " << minLabelWidth << std::endl;
+    std::cout << "maxLabelWidth: " << maxLabelWidth << std::endl;
 
     if (lineWidth == minLabelWidth)
     {
@@ -225,4 +255,5 @@ void PackageShape::initWithXMLProperties(Canvas *canvas,
             std::cout << "fontHeight: " << fontHeight << std::endl;
         }
     }
+    setContainmentPadding(QMarginsF(qreal(5), qreal(fontHeight + 15), qreal(5), qreal(5)));
 }

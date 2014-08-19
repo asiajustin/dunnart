@@ -30,6 +30,7 @@
 #define CANVAS_H_
 
 #include <QGraphicsScene>
+#include <QGraphicsSvgItem>
 #include <QAction>
 #include <QEvent>
 #include <QList>
@@ -63,6 +64,7 @@ class Graph;
 }
 
 class CanvasItem;
+class ConnectorLabel;
 class Guideline;
 class GraphLayout;
 class SelectionResizeHandle;
@@ -166,6 +168,7 @@ class Canvas : public QGraphicsScene
         QString filename(void);
         QList<CanvasItem *> items(void) const;
         QList<CanvasItem *> selectedItems(void) const;
+        QList<QGraphicsSvgItem *> selectedGeneralItems(void) const;
         void setSelection(const QList<CanvasItem *>& newSelection);
         void postDiagramLoad(void);
         void setExpandedPage(const QRectF newExpandedPage);

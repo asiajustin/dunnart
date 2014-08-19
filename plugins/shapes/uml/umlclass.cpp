@@ -60,36 +60,7 @@ ClassShape::ClassShape()
     do_init();
 
     setItemType("umlClass");
-
-    classNameAreaText = "<<Stereotype>>\nClassName";
-    classAttributesAreaText = "<<Stereotype>> # attrName: AttrType";
-    classMethodsAreaText = "+ methodName(in paramA: ParamAType, out paramB: ParamBType): ReturnType";
-
     setSizeLocked(true);
-
-    /*
-    attributes.resize(1);
-    methods.resize(1);
-    methods[0].params.resize(2);
-    class_stereotype = "Stereotype";
-    class_name = "ClassName";
-
-    attributes[0].accessModifier = PROTECTED;
-    attributes[0].name = "attrName";
-    attributes[0].type = "AttrType";
-    attributes[0].stereotype = "Stereotype";
-
-    methods[0].accessModifier = PUBLIC;
-    methods[0].name = "methodName";
-    methods[0].return_type = "ReturnType";
-
-    methods[0].params[0].name = "paramA";
-    methods[0].params[0].type = "ParamAType";
-    methods[0].params[0].mode = PARAM_IN;
-    methods[0].params[1].name = "paramB";
-    methods[0].params[1].type = "ParamBType";
-    methods[0].params[1].mode = PARAM_OUT;
-    updateAllClassAreas();*/
 
 }
 
@@ -111,6 +82,20 @@ QString ClassShape::getClassAttributesAreaText()
 QString ClassShape::getClassMethodsAreaText()
 {
     return classMethodsAreaText;
+}
+
+void ClassShape::setupForShapePickerPreview()
+{
+    classNameAreaText = "";
+    classAttributesAreaText = "";
+    classMethodsAreaText = "";
+}
+
+void ClassShape::setupForShapePickerDropOnCanvas()
+{
+    classNameAreaText = "<<Stereotype>>\nClassName";
+    classAttributesAreaText = "<<Stereotype>> # attrName: AttrType";
+    classMethodsAreaText = "+ methodName(in paramA: ParamAType, out paramB: ParamBType): ReturnType";
 }
 
 /*
@@ -391,6 +376,10 @@ void ClassShape::updateAllClassAreas()
             {
                 classAttributesAreaText += "+ ";
             }
+            else if (attributes[i].accessModifier == PACKAGE)
+            {
+                classAttributesAreaText += "~ ";
+            }
             classAttributesAreaText += attributes[i].name;
             if (!attributes[i].type.isEmpty())
             {
@@ -465,6 +454,10 @@ void ClassShape::updateAllClassAreas()
             else if (methods[i].accessModifier == PUBLIC)
             {
                 classMethodsAreaText += "+ ";
+            }
+            else if (methods[i].accessModifier == PACKAGE)
+            {
+                classMethodsAreaText += "~ ";
             }
             classMethodsAreaText += methods[i].name + "(";
             if (!parameterListText.isEmpty())
@@ -570,7 +563,7 @@ void ClassShape::classNameAreaChanged()
 
     if (tempClassNameAreaText.startsWith("<<") && tempClassNameAreaText.contains(">>"))
     {
-        class_stereotype = tempClassNameAreaText.mid(2, tempClassNameAreaText.indexOf(">>") - 2);
+        class_stereotype = tempClassNameAreaText.mid(2, tempClassNameAreaText.indexOf(">>") - 2).simplified().replace(" ", "_");
         class_name = tempClassNameAreaText.mid(tempClassNameAreaText.indexOf(">>") + 2).simplified().replace(" ", "_");
     }
     else if (!tempClassNameAreaText.contains("<") && !tempClassNameAreaText.contains(">"))
@@ -634,7 +627,7 @@ void ClassShape::classAttributesAreaChanged()
 
         if (currentAttribute.startsWith("<<") && currentAttribute.contains(">>"))
         {
-            attributes[i].stereotype = currentAttribute.mid(2, currentAttribute.indexOf(">>") - 2);
+            attributes[i].stereotype = currentAttribute.mid(2, currentAttribute.indexOf(">>") - 2).simplified().replace(" ", "_");
             currentAttribute = currentAttribute.mid(currentAttribute.indexOf(">>") + 2).trimmed();
         }
         else
@@ -644,7 +637,7 @@ void ClassShape::classAttributesAreaChanged()
 
         if (currentAttribute.startsWith("+") || currentAttribute.startsWith("-") || currentAttribute.startsWith("#"))
         {
-            attributes[i].accessModifier = currentAttribute.startsWith("+") ? PUBLIC : currentAttribute.startsWith("-") ? PRIVATE : PROTECTED;
+            attributes[i].accessModifier = currentAttribute.startsWith("~") ? PACKAGE : currentAttribute.startsWith("+") ? PUBLIC : currentAttribute.startsWith("-") ? PRIVATE : PROTECTED;
             currentAttribute = currentAttribute.mid(1).trimmed();
         }
         else {
@@ -707,6 +700,10 @@ void ClassShape::classAttributesAreaChanged()
             {
                 classAttributesAreaText += "+ ";
             }
+            else if (attributes[i].accessModifier == PACKAGE)
+            {
+                classAttributesAreaText += "~ ";
+            }
             classAttributesAreaText += attributes[i].name;
             if (!attributes[i].type.isEmpty())
             {
@@ -760,7 +757,7 @@ void ClassShape::classMethodsAreaChanged()
 
         if (currentMethod.startsWith("+") || currentMethod.startsWith("-") || currentMethod.startsWith("#"))
         {
-            methods[i].accessModifier = currentMethod.startsWith("+") ? PUBLIC : currentMethod.startsWith("-") ? PRIVATE : PROTECTED;
+            methods[i].accessModifier = currentMethod.startsWith("~") ? PACKAGE : currentMethod.startsWith("+") ? PUBLIC : currentMethod.startsWith("-") ? PRIVATE : PROTECTED;
             currentMethod = currentMethod.mid(1).trimmed();
         }
         else {
@@ -909,6 +906,10 @@ void ClassShape::classMethodsAreaChanged()
             else if (methods[i].accessModifier == PUBLIC)
             {
                 classMethodsAreaText += "+ ";
+            }
+            else if (methods[i].accessModifier == PACKAGE)
+            {
+                classMethodsAreaText += "~ ";
             }
             classMethodsAreaText += methods[i].name + "(";
             if (!parameterListText.isEmpty())
@@ -1685,10 +1686,6 @@ void ClassShape::do_init()
     std::cout << "DO_____________INIT" << std::endl;
     mode_changed_manually = false;
 
-    classNameSectionHeight = 7;
-    classAttributesSectionHeight = 7;
-    classMethodsSectionHeight = 7;
-
     mode = NOABBREV;
 
     //m_detail_level = 1;   // updated shape.h sets the default detail level as 1
@@ -1737,7 +1734,11 @@ int ClassShape::getMaxWidth()
             {
                 currentLineWidth += qfm.width("<<" + attributes[i].stereotype + ">> ");
             }
-            if (currentLineWidth != 0 && attributes[i].accessModifier == PUBLIC)
+            if (currentLineWidth != 0 && attributes[i].accessModifier == PACKAGE)
+            {
+                currentLineWidth += qfm.width("~ ");
+            }
+            else if (currentLineWidth != 0 && attributes[i].accessModifier == PUBLIC)
             {
                 currentLineWidth += qfm.width("+ ");
             }
@@ -1793,7 +1794,11 @@ int ClassShape::getMaxWidth()
                     }
                 }
             }
-            if (currentLineWidth != 0 && methods[i].accessModifier == PUBLIC)
+            if (currentLineWidth != 0 && methods[i].accessModifier == PACKAGE)
+            {
+                currentLineWidth += qfm.width("~ ");
+            }
+            else if (currentLineWidth != 0 && methods[i].accessModifier == PUBLIC)
             {
                 currentLineWidth += qfm.width("+ ");
             }

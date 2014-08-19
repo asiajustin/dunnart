@@ -50,12 +50,14 @@ class PropertiesEditorDialog;
 class ShapePickerDialog;
 class UndoHistoryDialog;
 class CanvasOverviewDialog;
+class MainCanvasOverviewDialog;
+class SearchWidget;
 
 static const int MAX_RECENT_FILES = 20;
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT;
+    Q_OBJECT
 
     public:
         MainWindow(Application *app);
@@ -115,9 +117,11 @@ class MainWindow : public QMainWindow
         QAction *m_action_show_shape_picker_dialog;
         QAction *m_action_show_undo_history_dialog;
         QAction *m_action_show_canvas_overview_dialog;
+        QAction *m_action_show_main_canvas_overview_dialog;
         QAction *m_action_open_recent_file[MAX_RECENT_FILES];
         QAction *m_action_recent_file_separator;
         QAction *m_action_clear_recent_files;
+        QAction *m_action_show_search_widget;
 
         QAction *m_about_action;
         QAction *m_homepage_action;
@@ -135,6 +139,8 @@ class MainWindow : public QMainWindow
         ShapePickerDialog *m_dialog_shape_picker;
         UndoHistoryDialog *m_dialog_undo_history;
         CanvasOverviewDialog *m_dialog_canvas_overview;
+        MainCanvasOverviewDialog *m_dialog_main_canvas_overview;
+        SearchWidget *m_search_widget;
 };
 
 

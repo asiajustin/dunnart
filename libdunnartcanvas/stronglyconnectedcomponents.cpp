@@ -78,7 +78,7 @@ void SCCDetector::strongConnect(uint v)
     {
         // for each (v, w) in E
         cola::Edge edge = m_graph->edges[edgeInd];
-        if ( (edge.first == v) && m_graph->conn_vec[edgeInd]->isDirected() &&
+        if ( (edge.first == v) && m_graph->conn_vec[edgeInd]->getDirected() == Connector::either &&
                 m_graph->conn_vec[edgeInd]->obeysDirectedEdgeConstraints() )
         {
             int w = edge.second;

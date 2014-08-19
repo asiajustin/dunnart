@@ -242,7 +242,7 @@ struct ShapePosInfo : PosInfo {
         shapePtr(p),
         locked(false),
         resized(false) 
-    { 
+    {
         double buffer = shapePtr->canvas()->optShapeNonoverlapPadding();
         shapeRect = shapePtr->shapeRect(buffer);
         shapeRect.moveCenter(QPointF(x, y));

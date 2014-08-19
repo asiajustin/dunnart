@@ -81,7 +81,7 @@ using namespace dunnart;
 
 
 enum UML_Param_Mode { UNSPECIFIED, PARAM_IN, PARAM_OUT };
-enum ACCESS_MODIFIER { DEFAULT, PRIVATE, PROTECTED, PUBLIC};
+enum ACCESS_MODIFIER { DEFAULT, PRIVATE, PROTECTED, PUBLIC, PACKAGE};
 
 struct Attribute {
     bool is_public;
@@ -145,16 +145,30 @@ class ClassShape: public RectangleShape {
         virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
 
         /**
-          * Overrided, to specify how many levels of detail your shape has.
+         * Overrided, to specify how many levels of detail your shape has.
          */
         virtual uint levelsOfDetail(void) const;
 
         /**
-          * Overrided, to specify the size that your shape should be
-          * expanded to at each detail level.  The base level is 1.  Any
-          * subsequent levels will be 2, 3, ...
+         * Overrided, to specify the size that your shape should be
+         * expanded to at each detail level.  The base level is 1.  Any
+         * subsequent levels will be 2, 3, ...
          */
         virtual QSizeF sizeForDetailLevel(uint level);
+
+        /**
+         * @brief Override this to set up any label text, colours, etc for the
+         *        instance of the shape to be shown in the shape picker.
+         */
+        virtual void setupForShapePickerPreview(void);
+
+        /**
+         *  Overrided, to set up any label text, colours, etc for the
+         *  instance of the shape created on the canvas when the users
+         *  drags shapes from the shape picker.
+         */
+        virtual void setupForShapePickerDropOnCanvas(void);
+
 
     public slots:
         void classNameAreaChanged();

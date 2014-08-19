@@ -286,7 +286,8 @@ enum {
     ZORD_Shape,
     ZORD_CentreConnectionPoint,
     ZORD_ConnectionPoint,
-    ZORD_ConnectorEndpoint
+    ZORD_ConnectorEndpoint,
+    ZORD_ConnectorLabel
 };
 
 

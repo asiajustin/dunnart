@@ -32,6 +32,7 @@
 #include <QColor>
 
 #include "libdunnartcanvas/canvasitem.h"
+#include "libdunnartcanvas/connectorlabel.h"
 
 #include "libavoid/geomtypes.h"
 
@@ -94,14 +95,16 @@ class Connector : public CanvasItem
 {
     Q_OBJECT
     Q_PROPERTY (RoutingType routingType READ routingType WRITE setRoutingType)
-    Q_PROPERTY (bool directed READ isDirected WRITE setDirected)
+    Q_PROPERTY (DirectedType directed READ getDirected WRITE setDirected)
     Q_PROPERTY (double idealLength READ idealLength WRITE setIdealLength)
-    Q_PROPERTY (ArrowHeadType arrowHeadType READ arrowHeadType WRITE setArrowHeadType)
+    Q_PROPERTY (ArrowHeadType arrowHeadHeadType READ arrowHeadHeadType WRITE setArrowHeadHeadType)
+    Q_PROPERTY (ArrowHeadType arrowTailHeadType READ arrowTailHeadType WRITE setArrowTailHeadType)
     Q_PROPERTY (QColor colour READ colour WRITE setColour)
     Q_PROPERTY (bool dashedStroke READ dashedStroke WRITE setDashedStroke)
     Q_PROPERTY (QString label READ label WRITE setLabel)
     Q_PROPERTY (bool obeysDirectedConstraint READ obeysDirectedEdgeConstraints WRITE setObeysDirectedEdgeConstraints)
     Q_ENUMS (RoutingType)
+    Q_ENUMS (DirectedType)
     Q_ENUMS (ArrowHeadType)
 
     public:
@@ -118,8 +121,11 @@ class Connector : public CanvasItem
             diamond_filled,
             cross,
             cross_triangle_outline,
-            cross_triangle_filled
+            cross_triangle_filled,
+            nonNavigable,
+            normalCircle_filled
         };
+        enum DirectedType { neither, either, both};
 
         friend void spline_preview(CanvasItem **c);
         Connector();
@@ -129,8 +135,8 @@ class Connector : public CanvasItem
         virtual void initWithXMLProperties(Canvas *canvas,
                 const QDomElement& node, const QString& ns);
 
-        bool isDirected(void) const;
-        void setDirected(const bool directed);
+        DirectedType getDirected(void) const;
+        void setDirected(const DirectedType directed);
 
         RoutingType routingType(void) const;
         void setRoutingType(const RoutingType routingType);
@@ -138,8 +144,10 @@ class Connector : public CanvasItem
         QColor colour(void) const;
         void setColour(const QColor colour);
 
-        ArrowHeadType arrowHeadType(void) const;
-        void setArrowHeadType(const ArrowHeadType arrowHeadType);
+        ArrowHeadType arrowHeadHeadType(void) const;
+        void setArrowHeadHeadType(const ArrowHeadType arrowHeadHeadTypeVal);
+        ArrowHeadType arrowTailHeadType(void) const;
+        void setArrowTailHeadType(const ArrowHeadType arrowTailHeadTypeVal);
 
         double idealLength(void) const;
         void setIdealLength(double length);
@@ -238,25 +246,40 @@ class Connector : public CanvasItem
         Avoid::Polygon m_offset_route;
         CPoint m_src_pt;
         CPoint m_dst_pt;
-        bool m_is_directed;
+        DirectedType m_directed;
         RoutingType m_routing_type;
         bool m_has_downward_constraint;
         bool m_obeys_directed_edge_constraints;
-        ArrowHeadType m_arrow_head_type;
+        ArrowHeadType m_arrowHead_head_type;
+        ArrowHeadType m_arrowTail_head_type;
         bool m_arrow_head_outline;
+        bool m_arrow_tail_outline;
         bool m_dashed_stroke;
-        QPainterPath m_arrow_path;
+        QPainterPath m_arrowHead_path;
+        QPainterPath m_arrowTail_path;
         // Unclosed and unreversed representation of connector path route.
         QPainterPath m_conn_path;
         QPainterPath m_shape_path;
         QVector<Handle *> m_handles;
         bool m_is_lone_selected;
+
+    private:
+        ConnectorLabel *headLabelRectangle1;
+        ConnectorLabel *headLabelRectangle2;
+        ConnectorLabel *middleLabelRectangle1;
+        ConnectorLabel *middleLabelRectangle2;
+        ConnectorLabel *tailLabelRectangle1;
+        ConnectorLabel *tailLabelRectangle2;
+
+        double previousSrcPtY;
+        double previousDstPtY;
 };
 
 
 }
 
 Q_DECLARE_METATYPE (dunnart::Connector::RoutingType)
+Q_DECLARE_METATYPE (dunnart::Connector::DirectedType)
 Q_DECLARE_METATYPE (dunnart::Connector::ArrowHeadType)
 
 #endif

@@ -26,10 +26,10 @@
 #include "qtpropertybrowser/qtpropertymanager.h"
 #include "qtpropertybrowser/qteditorfactory.h"
 
+#include <QGraphicsSvgItem>
 
 #include "propertieseditor.h"
 #include "canvas.h"
-#include "canvasitem.h"
 #include "connector.h"
 
 namespace dunnart {
@@ -89,7 +89,7 @@ void PropertiesEditorDialog::canvasSelectionChanged()
     {
         return;
     }
-    QList<CanvasItem *> list = m_canvas->selectedItems();
+    QList<QGraphicsSvgItem *> list = m_canvas->selectedGeneralItems();
 
     QObject *item = m_canvas;
     int firstProperty = Canvas::staticMetaObject.propertyOffset();
@@ -98,7 +98,7 @@ void PropertiesEditorDialog::canvasSelectionChanged()
     {
         item = list.front();
         canvasItemProperties = true;
-        firstProperty = CanvasItem::staticMetaObject.propertyOffset();
+        firstProperty = QGraphicsSvgItem::staticMetaObject.propertyOffset();
     }
 
     QtVariantProperty *property = NULL;
@@ -108,6 +108,9 @@ void PropertiesEditorDialog::canvasSelectionChanged()
     for(int i = firstProperty; i < metaObject->propertyCount(); ++i)
     {
         //qDebug("== %s", metaObject->property(i).name());
+
+        // Justin: Get rid of the first 2 special properties for QGraphicsSvgItems; it's meaningless to display them.
+        if (QString(metaObject->property(i).name()).compare(QString("elementId")) == 0 || QString(metaObject->property(i).name()).compare(QString("maximumCacheSize")) == 0) continue;
 
         const QMetaProperty& prop = metaObject->property(i);
 
@@ -204,7 +207,7 @@ void PropertiesEditorDialog::valueChanged(QtProperty *property, const QVariant &
     {
         return;
     }
-    QList<CanvasItem *> list = m_canvas->selectedItems();
+    QList<QGraphicsSvgItem *> list = m_canvas->selectedGeneralItems();
 
     m_canvas->beginUndoMacro(tr("Change Property"));
     if (list.empty())
@@ -215,7 +218,7 @@ void PropertiesEditorDialog::valueChanged(QtProperty *property, const QVariant &
     else
     {
         // Otherwise, set it on the first item in the selection:
-        CanvasItem *item = list.front();
+        QGraphicsSvgItem *item = list.front();
         item->setProperty(m_property_to_id[property].toLatin1().constData(), value);
     }
 }

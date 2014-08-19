@@ -283,7 +283,7 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
 
             for (uint i = 0; i < conn_vec.size(); ++i)
             {
-                if ( ! conn_vec[i]->isDirected() ||
+                if (conn_vec[i]->getDirected() == Connector::neither ||
                      ! conn_vec[i]->obeysDirectedEdgeConstraints() )
                 {
                     // Don't constrain undirected edges, or those

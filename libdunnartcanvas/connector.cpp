@@ -72,10 +72,11 @@ Connector::Connector()
       m_ideal_length(0),
       m_colour(defaultConnLineCol),
       m_saved_colour(defaultConnLineCol),
-      m_is_directed(false),
+      m_directed(neither),
       m_has_downward_constraint(false),
       m_obeys_directed_edge_constraints(true),
-      m_arrow_head_type(normal),
+      m_arrowHead_head_type(normal),
+      m_arrowTail_head_type(normal),
       m_dashed_stroke(false),
       m_is_lone_selected(false)
 {
@@ -89,6 +90,19 @@ Connector::Connector()
 
     setHoverMessage("Connector \"%1\" - Select to modify path, drag to move "
             "connector (disconnecting it from attached shapes).");
+
+    headLabelRectangle1 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
+    headLabelRectangle1->setLabel("11A");
+    headLabelRectangle2 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
+    headLabelRectangle2->setLabel("11B");
+    middleLabelRectangle1 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
+    middleLabelRectangle1->setLabel("22A");
+    middleLabelRectangle2 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
+    middleLabelRectangle2->setLabel("22B");
+    tailLabelRectangle1 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
+    tailLabelRectangle1->setLabel("33A");
+    tailLabelRectangle2 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
+    tailLabelRectangle2->setLabel("33B");
 }
 
 
@@ -141,15 +155,29 @@ void Connector::initWithXMLProperties(Canvas *canvas,
     }
 
     // get arrow type
-    QString value = nodeAttribute(node, ns, "arrowHeadType");
+    QString value = nodeAttribute(node, ns, "arrowHeadHeadType");
     if (!value.isNull())
     {
-        setProperty("arrowHeadType", value);
+        setProperty("arrowHeadHeadType", value);
         // Arrowhead implies connector is directed.
-        m_is_directed = true;
+        //m_directed = either;
     }
 
-    optionalProp(node, x_directed, m_is_directed, ns);
+    value = nodeAttribute(node, ns, "arrowTailHeadType");
+    if (!value.isNull())
+    {
+        setProperty("arrowTailHeadType", value);
+        // Arrowhead implies connector is directed.
+        //m_directed = both;
+    }
+
+    value = nodeAttribute(node, ns, "directed");
+    if (!value.isNull())
+    {
+        m_directed = DirectedType(value.toInt());
+    }
+    setProperty("directed", m_directed);
+    //optionalProp(node, x_directed, m_is_directed, ns);
 
     m_src_pt.shape = NULL;
     m_src_pt.pinClassID = 0;
@@ -423,15 +451,21 @@ void Connector::addXmlProps(const unsigned int subset, QDomElement& node,
                       valueStringForEnum("RoutingType", m_routing_type));
         }
 
-        if (m_arrow_head_type != normal)
+        if (m_arrowHead_head_type != normal)
         {
-            newProp(node, "arrowHeadType",
-                      valueStringForEnum("ArrowHeadType", m_arrow_head_type));
+            newProp(node, "arrowHeadHeadType",
+                      valueStringForEnum("ArrowHeadType", m_arrowHead_head_type));
         }
 
-        if (m_is_directed)
+        if (m_arrowTail_head_type != normal)
         {
-            newProp(node, x_directed, m_is_directed);
+            newProp(node, "arrowTailHeadType",
+                      valueStringForEnum("ArrowHeadType", m_arrowTail_head_type));
+        }
+
+        if (m_directed != neither)
+        {
+            newProp(node, "directed", m_directed);
         }
 
         if (m_colour != defaultConnLineCol)
@@ -583,16 +617,16 @@ bool Connector::hasSameEndpoints(void)
 }
 
 
-void Connector::setDirected(const bool directed)
+void Connector::setDirected(const DirectedType directed)
 {
-    if (directed == m_is_directed)
+    if (directed == m_directed)
     {
         return;
     }
 
     // UNDO add_undo_record(DELTA_CONNDIR, this);
 
-    m_is_directed = directed;
+    m_directed = directed;
     update();
 
     if (canvas())
@@ -652,14 +686,26 @@ void Connector::setRoutingType(const Connector::RoutingType routingTypeVal)
     }
 }
 
-Connector::ArrowHeadType Connector::arrowHeadType(void) const
+Connector::ArrowHeadType Connector::arrowHeadHeadType(void) const
 {
-    return m_arrow_head_type;
+    return m_arrowHead_head_type;
 }
 
-void Connector::setArrowHeadType(const Connector::ArrowHeadType arrowHeadTypeVal)
+void Connector::setArrowHeadHeadType(const Connector::ArrowHeadType arrowHeadHeadTypeVal)
 {
-    m_arrow_head_type = arrowHeadTypeVal;
+    m_arrowHead_head_type = arrowHeadHeadTypeVal;
+    buildArrowHeadPath();
+    update();
+}
+
+Connector::ArrowHeadType Connector::arrowTailHeadType(void) const
+{
+    return m_arrowTail_head_type;
+}
+
+void Connector::setArrowTailHeadType(const Connector::ArrowHeadType arrowTailHeadTypeVal)
+{
+    m_arrowTail_head_type = arrowTailHeadTypeVal;
     buildArrowHeadPath();
     update();
 }
@@ -680,9 +726,9 @@ void Connector::swapDirection(void)
 }
 
 
-bool Connector::isDirected(void) const
+Connector::DirectedType Connector::getDirected(void) const
 {
-    return m_is_directed;
+    return m_directed;
 }
 
 bool Connector::hasDownwardConstraint(void) const
@@ -1033,7 +1079,7 @@ bool Connector::drawArrow(QPainterPath& painter_path, double srcx, double srcy,
     QString keyString = valueStringForEnum("ArrowHeadType", (int) arrow_type);
     QStringList typeStrings = keyString.split("_");
 
-    Point l1, l2, a1, a2, a3;
+    Point l1, l2, a1, a2, a3, a4;
     l1.x = srcx;
     l1.y = srcy;
     
@@ -1078,6 +1124,40 @@ bool Connector::drawArrow(QPainterPath& painter_path, double srcx, double srcy,
         painter_path.closeSubpath();
 
         crossDistance = 11;
+    }
+    else if (typeStrings.contains("nonNavigable"))
+    {
+        arrowPoints(l1, l2, &a1, &a2, &a3, 8);
+        arrowPoints(l1, a2, &a1, &a4, &a3, 3.15);
+        painter_path.moveTo(a1.x, a1.y);
+        painter_path.lineTo(2 * a2.x - a1.x, 2 * a2.y - a1.y);
+        painter_path.moveTo(a3.x, a3.y);
+        painter_path.lineTo(2 * a2.x - a3.x, 2 * a2.y - a3.y);
+        painter_path.closeSubpath();
+    }
+    else if (typeStrings.contains("normalCircle"))
+    {
+        //arrowPoints(l1, Point(0.96*l2.x, 0.96*l2.y), &a1, &a2, &a3);
+        /*painter_path.moveTo(0.96*l2.x, 0.96*l2.y);
+        painter_path.lineTo(a1.x, a1.y);
+        painter_path.lineTo(0.96*l2.x, 0.96*l2.y);
+        painter_path.lineTo(a3.x, a3.y);
+
+        double radius = sqrt(pow(0.04*l2.x, 2) + pow(0.04*l2.y, 2)) / 2;
+        painter_path.addEllipse(QPointF(0.98*l2.x, 0.98*l2.y), radius, radius);
+        painter_path.closeSubpath();*/
+
+        arrowPoints(l1, l2, &a1, &a2, &a3, 8);
+        arrowPoints(l1, a2, &a1, &a4, &a3);
+        painter_path.moveTo(a2.x, a2.y);
+        painter_path.lineTo(a1.x, a1.y);
+        painter_path.lineTo((a2.x + 0.1 * (a2.x-a1.x)),
+                (a2.y + 0.1 * (a2.y-a4.y)));
+        painter_path.lineTo(a3.x, a3.y);
+
+        double radius = (euclideanDist(l1, l2) - euclideanDist(l1, a2)) / 2;
+        painter_path.addEllipse(QPointF((l2.x - a2.x) / 2 + a2.x, (l2.y - a2.y) / 2 + a2.y), radius, radius);
+        painter_path.closeSubpath();
     }
 
     if (typeStrings.contains("cross"))
@@ -1354,8 +1434,9 @@ void Connector::applyNewRoute(const Avoid::Polygon& oroute)
 
 void Connector::buildArrowHeadPath(void)
 {
-    m_arrow_path = QPainterPath();
-    if (m_is_directed)
+    m_arrowHead_path = QPainterPath();
+    m_arrowTail_path = QPainterPath();
+    if (m_directed == either)
     {
         if (m_dst_pt.shape)
         {
@@ -1375,19 +1456,62 @@ void Connector::buildArrowHeadPath(void)
                 // add the arrow if there are at least two elements.
                 QPainterPath::Element last = cutPath.elementAt(path_size - 1);
                 QPainterPath::Element prev = cutPath.elementAt(path_size - 2);
-                m_arrow_head_outline = drawArrow(m_arrow_path, prev.x,
-                        prev.y, last.x, last.y, arrowHeadType());
+                m_arrow_head_outline = drawArrow(m_arrowHead_path, prev.x,
+                        prev.y, last.x, last.y, arrowHeadHeadType());
             }
         }
         else
         {
             int line_size = m_offset_route.size();
             // The destination end is not attached to any shape.
-            m_arrow_head_outline = drawArrow(m_arrow_path,
+            m_arrow_head_outline = drawArrow(m_arrowHead_path,
                     m_offset_route.ps[line_size - 2].x,
                     m_offset_route.ps[line_size - 2].y,
                     m_offset_route.ps[line_size - 1].x,
-                    m_offset_route.ps[line_size - 1].y, arrowHeadType());
+                    m_offset_route.ps[line_size - 1].y, arrowHeadHeadType());
+        }
+    }
+    else if (m_directed == both)
+    {
+        if (m_dst_pt.shape && m_src_pt.shape)
+        {
+            ShapeObj *dstShape = m_dst_pt.shape;
+            QPolygonF polygon = dstShape->shape().toFillPolygon();
+            polygon.translate(dstShape->pos());
+
+            QPainterPath cutPath = cutPainterPathEnd(m_conn_path, pos(), polygon);
+
+            size_t path_size = cutPath.elementCount();
+            if (path_size >= 2)
+            {
+                // Overlapping shapes can result in a connector with the two
+                // endpoints at the same position.  This in turn results in
+                // a QPainterPath with only a single element.  So, we only
+                // add the arrow if there are at least two elements.
+                QPainterPath::Element last = cutPath.elementAt(path_size - 1);
+                QPainterPath::Element prev = cutPath.elementAt(path_size - 2);
+                m_arrow_head_outline = drawArrow(m_arrowHead_path, prev.x,
+                        prev.y, last.x, last.y, arrowHeadHeadType());
+            }
+
+            ShapeObj *srcShape = m_src_pt.shape;
+            polygon = srcShape->shape().toFillPolygon();
+            polygon.translate(srcShape->pos());
+
+            cutPath = cutPainterPathEnd(m_conn_path.toReversed(), pos(), polygon);
+
+            path_size = cutPath.elementCount();
+            if (path_size >= 2)
+            {
+                // Overlapping shapes can result in a connector with the two
+                // endpoints at the same position.  This in turn results in
+                // a QPainterPath with only a single element.  So, we only
+                // add the arrow if there are at least two elements.
+                QPainterPath::Element last = cutPath.elementAt(path_size - 1);
+                QPainterPath::Element prev = cutPath.elementAt(path_size - 2);
+                m_arrow_tail_outline = drawArrow(m_arrowTail_path, prev.x,
+                        prev.y, last.x, last.y, arrowTailHeadType());
+            }
         }
     }
 }
@@ -1433,7 +1557,7 @@ void Connector::applyMultiEdgeOffset(Point& p1, Point& p2, bool justSecond)
 QRectF Connector::boundingRect(void) const
 {
     const double padding = BOUNDINGRECTPADDING;
-    return (expandRect(painterPath().boundingRect(), padding) | m_arrow_path.boundingRect());
+    return (expandRect(painterPath().boundingRect(), padding) | m_arrowHead_path.boundingRect() | m_arrowTail_path.boundingRect());
 }
 
 
@@ -1514,7 +1638,7 @@ void Connector::paint(QPainter *painter,
     painter->drawPath(painterPath());
 
     // Add the Arrowhead.
-    if (m_is_directed)
+    if (m_directed != neither)
     {
         // There is an arrowhead.
         if (m_arrow_head_outline)
@@ -1526,15 +1650,140 @@ void Connector::paint(QPainter *painter,
         {
             painter->setBrush(QBrush(m_colour));
         }
-        painter->drawPath(m_arrow_path);
+        painter->drawPath(m_arrowHead_path);
+
+        if (m_directed == both)
+        {
+            if (m_arrow_tail_outline)
+            {
+                // Use white fill.
+                painter->setBrush(QBrush(Qt::white));
+            }
+            else
+            {
+                painter->setBrush(QBrush(m_colour));
+            }
+            painter->drawPath(m_arrowTail_path);
+        }
     }
 
     // Draw the connector's label.
     // XXX We need to work on positioning labels.
-    painter->setPen(Qt::black);
+    /*painter->setPen(Qt::black);
     painter->setFont(canvas()->canvasFont());
     painter->setRenderHint(QPainter::TextAntialiasing, true);
-    painter->drawText(painterPath().pointAtPercent(0.25), m_label);
+    painter->drawText(painterPath().pointAtPercent(0.25), m_label);*/
+
+    double srcShapeWidth = (m_src_pt.shape == NULL) ? 0 : m_src_pt.shape->size().width();
+    double srcShapeHeight = (m_src_pt.shape == NULL) ? 0 : m_src_pt.shape->size().height();
+    double dstShapeWidth = (m_dst_pt.shape == NULL) ? 0 : m_dst_pt.shape->size().width();
+    double dstShapeHeight = (m_dst_pt.shape == NULL) ? 0 : m_dst_pt.shape->size().height();
+
+    double srcShapeMaxHiddenLength = sqrt(pow(srcShapeWidth, 2) + pow(srcShapeHeight, 2)) / 2;
+    double dstShapeMaxHiddenLength = sqrt(pow(dstShapeWidth, 2) + pow(dstShapeHeight, 2)) / 2;
+    double totalLength = painterPath().length();
+    double minVisibleLength = totalLength - srcShapeMaxHiddenLength - dstShapeMaxHiddenLength;
+
+    double srcLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.1 * minVisibleLength;
+    double midLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.5 * minVisibleLength;
+    double dstLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.9 * minVisibleLength;
+
+    double srcLabelsPercentAtLength = painterPath().percentAtLength(srcLabelsAtConnectorLength);
+    double midLabelsPercentAtLength = painterPath().percentAtLength(midLabelsAtConnectorLength);
+    double dstLabelsPercentAtLength = painterPath().percentAtLength(dstLabelsAtConnectorLength);
+
+    QPointF srcLabelsAtConnectorPoint = painterPath().pointAtPercent(srcLabelsPercentAtLength);
+    QPointF midLabelsAtConnectorPoint = painterPath().pointAtPercent(midLabelsPercentAtLength);
+    QPointF dstLabelsAtConnectorPoint = painterPath().pointAtPercent(dstLabelsPercentAtLength);
+
+    double offsetFromConnector = 30, srcLabel1X, srcLabel1Y, srcLabel2X, srcLabel2Y, midLabel1X, midLabel1Y,
+                                    midLabel2X, midLabel2Y, dstLabel1X, dstLabel1Y, dstLabel2X, dstLabel2Y;
+
+    if (previousSrcPtY == 0 && m_src_pt.y != 0)
+    {
+        previousSrcPtY = m_src_pt.y;
+    }
+    if (previousDstPtY == 0 && m_dst_pt.y != 0)
+    {
+        previousDstPtY = m_dst_pt.y;
+    }
+
+    if (m_src_pt.y == m_dst_pt.y && painterPath().length() == qAbs(m_src_pt.x - m_dst_pt.x))
+    {
+        srcLabel1X = srcLabel2X = srcLabelsAtConnectorPoint.x();
+        midLabel1X = midLabel2X = midLabelsAtConnectorPoint.x();
+        dstLabel1X = dstLabel2X = dstLabelsAtConnectorPoint.x();
+
+        if (m_src_pt.x < m_dst_pt.x)
+        {
+            srcLabel1Y = srcLabelsAtConnectorPoint.y() - offsetFromConnector;
+            srcLabel2Y = srcLabelsAtConnectorPoint.y() + offsetFromConnector;
+            midLabel1Y = midLabelsAtConnectorPoint.y() - offsetFromConnector;
+            midLabel2Y = midLabelsAtConnectorPoint.y() + offsetFromConnector;
+            dstLabel1Y = dstLabelsAtConnectorPoint.y() - offsetFromConnector;
+            dstLabel2Y = dstLabelsAtConnectorPoint.y() + offsetFromConnector;
+        }
+        else
+        {
+            srcLabel1Y = srcLabelsAtConnectorPoint.y() + offsetFromConnector;
+            srcLabel2Y = srcLabelsAtConnectorPoint.y() - offsetFromConnector;
+            midLabel1Y = midLabelsAtConnectorPoint.y() + offsetFromConnector;
+            midLabel2Y = midLabelsAtConnectorPoint.y() - offsetFromConnector;
+            dstLabel1Y = dstLabelsAtConnectorPoint.y() + offsetFromConnector;
+            dstLabel2Y = dstLabelsAtConnectorPoint.y() - offsetFromConnector;
+        }
+    }
+    else
+    {
+        double slopForSrcLabelsLine = -1 / painterPath().slopeAtPercent(srcLabelsPercentAtLength);
+        double slopForMidLabelsLine = -1 / painterPath().slopeAtPercent(midLabelsPercentAtLength);
+        double slopForDstLabelsLine = -1 / painterPath().slopeAtPercent(dstLabelsPercentAtLength);
+
+        double interceptForSrcLabelsLine =
+                srcLabelsAtConnectorPoint.y() - slopForSrcLabelsLine * srcLabelsAtConnectorPoint.x();
+        double interceptForMidLabelsLine =
+                midLabelsAtConnectorPoint.y() - slopForMidLabelsLine * midLabelsAtConnectorPoint.x();
+        double interceptForDstLabelsLine =
+                dstLabelsAtConnectorPoint.y() - slopForDstLabelsLine * dstLabelsAtConnectorPoint.x();
+
+        double sencondPartForSrcLabelXs = sqrt(pow(offsetFromConnector, 2) / (pow(slopForSrcLabelsLine, 2) + 1));
+        double sencondPartForMidLabelXs = sqrt(pow(offsetFromConnector, 2) / (pow(slopForMidLabelsLine, 2) + 1));
+        double sencondPartForDstLabelXs = sqrt(pow(offsetFromConnector, 2) / (pow(slopForDstLabelsLine, 2) + 1));
+
+        if (previousSrcPtY < previousDstPtY && m_src_pt.y <= m_dst_pt.y)
+        {
+            srcLabel1X = srcLabelsAtConnectorPoint.x() + sencondPartForSrcLabelXs;
+            srcLabel2X = srcLabelsAtConnectorPoint.x() - sencondPartForSrcLabelXs;
+            midLabel1X = midLabelsAtConnectorPoint.x() + sencondPartForMidLabelXs;
+            midLabel2X = midLabelsAtConnectorPoint.x() - sencondPartForMidLabelXs;
+            dstLabel1X = dstLabelsAtConnectorPoint.x() + sencondPartForDstLabelXs;
+            dstLabel2X = dstLabelsAtConnectorPoint.x() - sencondPartForDstLabelXs;
+        }
+        else if (previousSrcPtY > previousDstPtY && m_src_pt.y >= m_dst_pt.y) {
+            srcLabel1X = srcLabelsAtConnectorPoint.x() - sencondPartForSrcLabelXs;
+            srcLabel2X = srcLabelsAtConnectorPoint.x() + sencondPartForSrcLabelXs;
+            midLabel1X = midLabelsAtConnectorPoint.x() - sencondPartForMidLabelXs;
+            midLabel2X = midLabelsAtConnectorPoint.x() + sencondPartForMidLabelXs;
+            dstLabel1X = dstLabelsAtConnectorPoint.x() - sencondPartForDstLabelXs;
+            dstLabel2X = dstLabelsAtConnectorPoint.x() + sencondPartForDstLabelXs;
+        }
+        srcLabel1Y = slopForSrcLabelsLine * srcLabel1X + interceptForSrcLabelsLine;
+        srcLabel2Y = slopForSrcLabelsLine * srcLabel2X + interceptForSrcLabelsLine;
+        midLabel1Y = slopForMidLabelsLine * midLabel1X + interceptForMidLabelsLine;
+        midLabel2Y = slopForMidLabelsLine * midLabel2X + interceptForMidLabelsLine;
+        dstLabel1Y = slopForDstLabelsLine * dstLabel1X + interceptForDstLabelsLine;
+        dstLabel2Y = slopForDstLabelsLine * dstLabel2X + interceptForDstLabelsLine;
+    }
+
+    previousSrcPtY = m_src_pt.y;
+    previousDstPtY = m_dst_pt.y;
+
+    headLabelRectangle1->setPos(QPoint(srcLabel1X, srcLabel1Y));
+    headLabelRectangle2->setPos(QPoint(srcLabel2X, srcLabel2Y));
+    middleLabelRectangle1->setPos(QPoint(midLabel1X, midLabel1Y));
+    middleLabelRectangle2->setPos(QPoint(midLabel2X, midLabel2Y));
+    tailLabelRectangle1->setPos(QPoint(dstLabel1X, dstLabel1Y));
+    tailLabelRectangle2->setPos(QPoint(dstLabel2X, dstLabel2Y));
 }
 
 
@@ -1572,8 +1821,9 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
     QAction *makePolyline = menu.addAction(tr("Change to polyline"));
     QAction *makeOrthogonal = menu.addAction(tr("Change to orthogonal"));
     menu.addSeparator();
-    QAction *makeDirected = menu.addAction(tr("Make directed"));
-    QAction *makeUndirected = menu.addAction(tr("Make undirected"));
+    QAction *makeEitherDirected = menu.addAction(tr("Make a side directed"));
+    QAction *makeBothDirected = menu.addAction(tr("Make both sides directed"));
+    QAction *makeUndirected = menu.addAction(tr("Make both sides undirected"));
     QAction *swapDirection = menu.addAction(
             tr("Switch direction"));
     menu.addSeparator();
@@ -1583,7 +1833,8 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
     QAction *addCheckpoint = menu.addAction(
             tr("Add routing checkpoint at cursor"));
 
-    bool selectedDirectedConns = false;
+    bool selectedBothDirectedConns = false;
+    bool selectedEitherDirectedConns = false;
     bool selectedUndirectedConns = false;
     bool selectedPolylineConns = false;
     bool selectedOrthogonalConns = false;
@@ -1591,13 +1842,17 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
     bool selectedManuallyRoutedConns = false;
     foreach (Connector *connector, selectedConns)
     {
-        if (connector->isDirected())
+        if (connector->getDirected() == neither)
         {
-            selectedDirectedConns = true;
+            selectedUndirectedConns = true;
+        }
+        else if (connector->getDirected() == either)
+        {
+            selectedEitherDirectedConns = true;
         }
         else
         {
-            selectedUndirectedConns = true;
+            selectedBothDirectedConns = true;
         }
 
         if (connector->routingType() == orthogonal)
@@ -1618,15 +1873,21 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
             selectedAutomaticallyRoutedConns = true;
         }
     }
-    if (selectedDirectedConns == false)
+    if (selectedEitherDirectedConns)
     {
+        makeEitherDirected->setVisible(false);
         // There are no directed connectors, disable direction swap.
+    }
+    if (selectedBothDirectedConns)
+    {
+        swapDirection->setVisible(false);
+        makeBothDirected->setVisible(false);
+
+    }
+    if (selectedUndirectedConns)
+    {
         swapDirection->setVisible(false);
         makeUndirected->setVisible(false);
-    }
-    if (selectedUndirectedConns == false)
-    {
-        makeDirected->setVisible(false);
     }
     if (selectedOrthogonalConns == false)
     {
@@ -1677,17 +1938,21 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
             {
                 connector->setRoutingType(orthogonal);
             }
-            else if ((action == swapDirection) && connector->isDirected())
+            else if ((action == swapDirection) && connector->getDirected() == either)
             {
                 connector->swapDirection();
             }
-            else if (action == makeDirected)
+            else if (action == makeEitherDirected)
             {
-                connector->setDirected(true);
+                connector->setDirected(either);
+            }
+            else if (action == makeBothDirected)
+            {
+                connector->setDirected(both);
             }
             else if (action == makeUndirected)
             {
-                connector->setDirected(false);
+                connector->setDirected(neither);
             }
             else if (action == fixedRouting)
             {

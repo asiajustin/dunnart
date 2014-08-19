@@ -8,6 +8,15 @@ class GraphLayout;
 NoteShape::NoteShape() : RectangleShape()
 {
     setItemType("umlNote");
+}
+
+void NoteShape::setupForShapePickerPreview()
+{
+    m_label = "";
+}
+
+void NoteShape::setupForShapePickerDropOnCanvas()
+{
     m_label = "Note";
 }
 
@@ -29,91 +38,103 @@ QPainterPath NoteShape::buildPainterPath(void)
     return painter_path;
 }
 
-QString NoteShape::getLabel() const
+QString NoteShape::label() const
 {
     return m_label;
 }
 
 void NoteShape::setLabel(const QString& label)
 {
-    m_label = label;
+    m_label = label.simplified();
 
-    QFontMetrics qfm(canvas()->canvasFont());
-    int maxWordLength = 0;
-    QStringList tempWordList = m_label.simplified().split(" ");
-    QStringList wordList;
-
-    std::cout << "Temp Word List Length(): " << tempWordList.length() << std::endl;
-
-    for (int i = 0; i < tempWordList.length(); i++)
-    {
-        if (!tempWordList.value(i).isEmpty())
-        {
-            wordList.append(tempWordList.value(i));
-        }
-    }
-
-    std::cout << "Word List Length(): " << wordList.length() << std::endl;
-
-    for (int i = 0; i < wordList.length(); i++)
-    {
-        int currentWordLength = qfm.width(wordList.value(i));
-        maxWordLength = (maxWordLength >= currentWordLength) ? maxWordLength : currentWordLength;
-    }
-    double currentWidth = qMax(70.0, qreal(maxWordLength + 10));
-
-    std::cout << "Current Width: " << currentWidth << std::endl;
-
-    double tempWidth = 0.0;
-    int lineCount = 1;
-
-    for (int i = 0; i < wordList.length(); i++)
-    {
-        bool spaceAdded = false;
-        double currentWordLength = qreal(qfm.width(wordList.value(i)));
-        if (i != wordList.length() - 1 && qfm.width(wordList.value(i)) != maxWordLength)
-        {
-            spaceAdded = true;
-            currentWordLength += qreal(qfm.width(" "));
-        }
-        double currentTotalLength = tempWidth + currentWordLength + 10;
-        if (currentTotalLength <= currentWidth)
-        {
-            tempWidth += currentWordLength;
-            std::cout << "Temp Width: " << tempWidth << std::endl;
-        }
-        else
-        {
-            if (spaceAdded && currentTotalLength - qreal(qfm.width(" ")) <= currentWidth)
-            {
-                tempWidth += qreal(qfm.width(wordList.value(i)));
-                std::cout << "Trailing space!!!! " << std::endl;
-            }
-            else
-            {
-                tempWidth = currentWordLength;
-                ++lineCount;
-                std::cout << "Temp Width Reset: " << tempWidth << std::endl;
-            }
-        }
-    }
-    double currentHeight = qMax(50.0, qreal(lineCount * qfm.height() + (lineCount - 1) * qfm.leading() + 15));
-
-    std::cout << "Line Count: " << lineCount << std::endl;
-    std::cout << "Current Width: " << currentWidth << std::endl;
-    std::cout << "Current Height: " << currentHeight << std::endl;
-    std::cout << "Width: " << width() << std::endl;
-    std::cout << "Height: " << height() << std::endl;
-
-    setSize(QSizeF(currentWidth, currentHeight));
-    update(CanvasItem::boundingRect());
+    update();
     canvas()->layout()->setRestartFromDunnart();
-    canvas()->repositionAndShowSelectionResizeHandles(true);
 }
 
 void NoteShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     std::cout << "UML Note: Paint" << std::endl;
+
+    if (!m_label.isEmpty())
+    {
+        if (width() < 70)
+        {
+            setSize(QSizeF(qreal(70), qreal(height())));
+        }
+
+        if (height() < 50)
+        {
+            setSize(QSizeF(qreal(width()), qreal(50)));
+        }
+
+        QFontMetrics qfm(canvas()->canvasFont());
+        int maxWordLength = 0;
+        QStringList wordList = m_label.split(" ");
+
+        std::cout << "Word List Length(): " << wordList.length() << std::endl;
+
+        for (int i = 0; i < wordList.length(); i++)
+        {
+            int currentWordLength = qfm.width(wordList.value(i));
+            maxWordLength = (maxWordLength >= currentWordLength) ? maxWordLength : currentWordLength;
+        }
+
+        double singleLineLength = qfm.width(m_label) + 10;
+
+        if (width() > singleLineLength)
+        {
+            setSize(QSizeF(singleLineLength, qreal(height())));
+        }
+
+        double currentWidth = qMax(width(), qreal(maxWordLength + 10));
+
+        std::cout << "Current Width: " << currentWidth << std::endl;
+
+        double tempWidth = 0.0;
+        int lineCount = 1;
+
+        for (int i = 0; i < wordList.length(); i++)
+        {
+            bool spaceAdded = false;
+            double currentWordLength = qreal(qfm.width(wordList.value(i)));
+            if (i != wordList.length() - 1 && qfm.width(wordList.value(i)) != maxWordLength)
+            {
+                spaceAdded = true;
+                currentWordLength += qreal(qfm.width(" "));
+            }
+            double currentTotalLength = tempWidth + currentWordLength + 10;
+            if (currentTotalLength <= currentWidth)
+            {
+                tempWidth += currentWordLength;
+                std::cout << "Temp Width: " << tempWidth << std::endl;
+            }
+            else
+            {
+                if (spaceAdded && currentTotalLength - qreal(qfm.width(" ")) <= currentWidth)
+                {
+                    tempWidth += qreal(qfm.width(wordList.value(i)));
+                    std::cout << "Trailing space!!!! " << std::endl;
+                }
+                else
+                {
+                    tempWidth = currentWordLength;
+                    ++lineCount;
+                    std::cout << "Temp Width Reset: " << tempWidth << std::endl;
+                }
+            }
+        }
+        double currentHeight = qMax(50.0, qreal(lineCount * qfm.height() + (lineCount - 1) * qfm.leading() + 15));
+
+        std::cout << "Line Count: " << lineCount << std::endl;
+        std::cout << "Current Width: " << currentWidth << std::endl;
+        std::cout << "Current Height: " << currentHeight << std::endl;
+        std::cout << "Width: " << width() << std::endl;
+        std::cout << "Height: " << height() << std::endl;
+
+        setSize(QSizeF(currentWidth, currentHeight));
+        canvas()->repositionAndShowSelectionResizeHandles(true);
+    }
+
     // Call the parent paint method, to draw the node and label
     ShapeObj::paint(painter, option, widget);
 

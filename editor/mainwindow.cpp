@@ -59,6 +59,8 @@
 #include "libdunnartcanvas/ui/shapepickerdialog.h"
 #include "libdunnartcanvas/ui/undohistorydialog.h"
 #include "libdunnartcanvas/ui/canvasoverview.h"
+#include "libdunnartcanvas/ui/maincanvasoverview.h"
+#include "libdunnartcanvas/ui/searchwidget.h"
 #include "libdunnartcanvas/pluginapplicationmanager.h"
 
 
@@ -204,6 +206,14 @@ MainWindow::MainWindow(Application *app)
             tr("Canvas Overview"), this);
     m_action_show_canvas_overview_dialog->setCheckable(true);
 
+    m_action_show_main_canvas_overview_dialog = new QAction(
+            tr("Main Canvas Overview"), this);
+    m_action_show_main_canvas_overview_dialog->setCheckable(true);
+
+    m_action_show_search_widget = new QAction(
+            tr("Search"), this);
+    m_action_show_search_widget->setCheckable(true);
+
     CanvasView *canvasview = m_tab_widget->currentCanvasView();
     Canvas *canvas = m_tab_widget->currentCanvas();
 
@@ -245,6 +255,7 @@ MainWindow::MainWindow(Application *app)
 
     m_view_menu = menuBar()->addMenu(tr("View"));
     QMenu *dialogs_menu = m_view_menu->addMenu(tr("Show Dialogs"));
+    dialogs_menu->addAction(m_action_show_main_canvas_overview_dialog);
     dialogs_menu->addAction(m_action_show_canvas_overview_dialog);
     dialogs_menu->addAction(m_action_show_zoom_level_dialog);
     dialogs_menu->addSeparator();
@@ -259,6 +270,8 @@ MainWindow::MainWindow(Application *app)
     dialogs_menu->addSeparator();
     dialogs_menu->addAction(m_action_show_layout_properties_dialog);
     dialogs_menu->addAction(m_action_show_connector_properties_dialog);
+    dialogs_menu->addSeparator();
+    dialogs_menu->addAction(m_action_show_search_widget);
     QMenu *overlays_menu = m_view_menu->addMenu(tr("Canvas Debug Layers"));
     m_tab_widget->addDebugOverlayMenuActions(overlays_menu);
 
@@ -372,6 +385,26 @@ MainWindow::MainWindow(Application *app)
             m_action_show_canvas_overview_dialog,  SLOT(setChecked(bool)));
     addDockWidget(Qt::LeftDockWidgetArea, m_dialog_canvas_overview);
     m_dialog_canvas_overview->hide();
+
+    m_dialog_main_canvas_overview = new MainCanvasOverviewDialog(canvasview, this);
+    connect(m_tab_widget, SIGNAL(currentCanvasViewChanged(CanvasView*)),
+            m_dialog_main_canvas_overview, SLOT(changeCanvasView(CanvasView*)));
+    connect(m_action_show_main_canvas_overview_dialog,  SIGNAL(triggered(bool)),
+            m_dialog_main_canvas_overview, SLOT(setVisible(bool)));
+    connect(m_dialog_main_canvas_overview, SIGNAL(visibilityChanged(bool)),
+            m_action_show_main_canvas_overview_dialog,  SLOT(setChecked(bool)));
+    addDockWidget(Qt::LeftDockWidgetArea, m_dialog_main_canvas_overview);
+    m_dialog_main_canvas_overview->hide();
+
+    m_search_widget = new SearchWidget(canvas, this);
+    connect(m_tab_widget, SIGNAL(currentCanvasChanged(Canvas*)),
+            m_search_widget, SLOT(changeCanvas(Canvas*)));
+    connect(m_action_show_search_widget,  SIGNAL(triggered(bool)),
+            m_search_widget, SLOT(setVisible(bool)));
+    connect(m_search_widget, SIGNAL(visibilityChanged(bool)),
+            m_action_show_search_widget,  SLOT(setChecked(bool)));
+    addDockWidget(Qt::LeftDockWidgetArea, m_search_widget);
+    m_search_widget->hide();
 
     // Allow plugins to initialise themselves and add things like
     // menu items and dock widgets to the main window.

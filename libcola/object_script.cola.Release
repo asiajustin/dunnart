@@ -1,0 +1,15 @@
+INPUT(
+./gen-obj\cola.o
+./gen-obj\colafd.o
+./gen-obj\conjugate_gradient.o
+./gen-obj\gradient_projection.o
+./gen-obj\straightener.o
+./gen-obj\connected_components.o
+./gen-obj\convex_hull.o
+./gen-obj\cluster.o
+./gen-obj\compound_constraints.o
+./gen-obj\output_svg.o
+./gen-obj\cc_clustercontainmentconstraints.o
+./gen-obj\cc_nonoverlapconstraints.o
+./gen-obj\box.o
+);

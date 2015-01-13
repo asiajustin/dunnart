@@ -150,6 +150,9 @@ private:
     }
     void setUpRootCluster();
     unsigned getConnectionPoint(const CPoint& connPointInfo);
+    void strongConnect(uint v);
+    QVector<int> stronglyConnectedComponentIndexes(void);
+
     std::map<ShapeObj*, unsigned> snMap;
     QMap<ShapeObj*, cola::Cluster *> rectClusterShapeMap;
     std::map<Indicator*,cola::CompoundConstraint*> ccMap;
@@ -159,12 +162,24 @@ private:
     std::vector<Connector*> conn_vec;
     std::vector<double> edgeLengths;
     std::vector<Cluster*> dunnartClusters;
+    QMap<ShapeObj*, int> shapeIndexLookup;
+    std::vector<Connector*> conn_vec1;
+    std::vector<cola::Edge> edges1;
     unsigned orthogonalEdgeCountX, orthogonalEdgeCountY;
 #ifndef NOGRAPHVIZ
     std::auto_ptr<GraphvizLayout> graphvizLayout;
 #endif
     friend class PostIteration;
     friend class SCCDetector;
+
+    const int k_undefined;
+    int m_index;
+    int m_scc_index;
+    QVector<int> m_indexes;
+    QVector<int> m_scc_indexes;
+    QVector<int> m_lowlinks;
+    QVector<bool> m_in_stack;
+    QStack<int> m_stack;
 };
 
 }

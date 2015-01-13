@@ -50,7 +50,6 @@ class ConnectorLabel;
 
 typedef QSet<ConnectorLabel *> ConnectorLabelSet;
 
-
 class ConnectorLabel: public QGraphicsSvgItem
 {
     Q_OBJECT
@@ -131,6 +130,8 @@ class ConnectorLabel: public QGraphicsSvgItem
         bool constraintConflict(void) const;
         virtual void loneSelectedChange(const bool value);
         QString svgCodeAsString(const QSize& size, const QRectF& viewBox);
+        void setIdealPos(QPointF pos);
+        QPointF idealPos();
 
     protected:
         void setHoverMessage(const QString& message);
@@ -184,6 +185,7 @@ class ConnectorLabel: public QGraphicsSvgItem
         QString m_label;
         QColor m_fill_colour;
         QColor m_stroke_colour;
+        QPointF ideal_pos;
 #if 0
         CanvasItemFlags m_flags;
 #endif

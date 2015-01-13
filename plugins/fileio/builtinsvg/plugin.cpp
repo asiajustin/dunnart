@@ -35,6 +35,7 @@
 #include "libdunnartcanvas/fileioplugininterface.h"
 #include "libdunnartcanvas/canvas.h"
 #include "libdunnartcanvas/canvasitem.h"
+#include "libdunnartcanvas/connectorlabel.h"
 
 using namespace dunnart;
 
@@ -156,12 +157,30 @@ class BuiltinSVGFileIOPlugin : public QObject, public FileIOPluginInterface
 
             canvas->setRenderingForPrinting(true);
             QList<CanvasItem *> canvas_items = canvas->items();
+            QList<ConnectorLabel *> connLabelItems = canvas->connectorLabelItems(true);
             int canvas_count = canvas_items.size();
+            int connLabel_count = connLabelItems.size();
             for (int i = 0; i < canvas_count; ++i)
             {
                 // Consider all the canvas items in reverse order, so they get drawn
                 // into the SVG file with the correct z-order.
                 CanvasItem *cobj = canvas_items.at(canvas_count - 1 - i);
+                QString svg = cobj->svgCodeAsString(size, viewBox);
+
+                // Less than three lines represents a open and close group tag
+                // (setting style), with no content between, so only output it if
+                // there are more than three lines.
+                int lines = svg.count('\n');
+                if (lines > 3)
+                {
+                    svgFile.write(svg.toUtf8());
+                }
+            }
+            for (int i = 0; i < connLabel_count; ++i)
+            {
+                // Consider all the canvas items in reverse order, so they get drawn
+                // into the SVG file with the correct z-order.
+                ConnectorLabel *cobj = connLabelItems.at(connLabel_count - 1 - i);
                 QString svg = cobj->svgCodeAsString(size, viewBox);
 
                 // Less than three lines represents a open and close group tag
@@ -187,6 +206,17 @@ class BuiltinSVGFileIOPlugin : public QObject, public FileIOPluginInterface
                 // Consider all the canvas items in reverse order, so they get drawn
                 // into the SVG file with the correct z-order.
                 CanvasItem *canvasObj = canvas_items.at(i);
+
+                QDomNode node = canvasObj->to_QDomElement(XMLSS_ALL, doc);
+                QString svgNodeString = nodeToString(node);
+                svgFile.write(svgNodeString.toUtf8());
+            }
+
+            for (int i = 0; i < connLabel_count; ++i)
+            {
+                // Consider all the canvas items in reverse order, so they get drawn
+                // into the SVG file with the correct z-order.
+                ConnectorLabel *canvasObj = connLabelItems.at(i);
 
                 QDomNode node = canvasObj->to_QDomElement(XMLSS_ALL, doc);
                 QString svgNodeString = nodeToString(node);

@@ -105,13 +105,17 @@ struct Method {
     std::vector<Parameter> params;
 };
 
-enum UML_Class_Abbrev_Mode { NOABBREV = 1, NO_PARAM_TYPES, NO_PARAMS, NO_TYPES,
-                             CLASS_NAME_ONLY};
+enum UML_Class_Abbrev_Mode { NO_ABBREV = 1, NO_RETURN_TYPES, NO_PARAM_TYPES, NO_PARAM_MODES, NO_PARAMS,
+                             NO_METHODS, NO_ATTR_TYPES, NO_ATTR_STEREOTYPES, NO_ATTRS, NO_CLASS_STEREOTYPES};
 enum UML_Class_Edit_Type { EDIT_CLASS_NAME, EDIT_ATTRIBUTES, EDIT_METHODS};
 
 
 class ClassShape: public RectangleShape {
     Q_OBJECT
+
+    /*Q_PROPERTY (QString classNameAreaText READ getClassNameAreaText)
+    Q_PROPERTY (QString classAttributesAreaText READ getClassAttributesAreaText)
+    Q_PROPERTY (QString classMethodsAreaText READ getClassMethodsAreaText)*/
 
     public:
         ClassShape();
@@ -123,23 +127,20 @@ class ClassShape: public RectangleShape {
 
         void setEditDialog(EditUmlClassInfoDialog *editDialog);
 
-        virtual void initWithXMLProperties(Canvas *canvas,
-                const QDomElement& node, const QString& ns);
-        virtual QDomElement to_QDomElement(const unsigned int subset,
-                QDomDocument& doc);
-
+        virtual void initWithXMLProperties(Canvas *canvas, const QDomElement& node, const QString& ns);
+        virtual QDomElement to_QDomElement(const unsigned int subset, QDomDocument& doc);
+#if 0
+        void setMode(UML_Class_Abbrev_Mode newMode);
         void middle_click(const int& mouse_x, const int& mouse_y);
-        
+
         const char* get_class_name(void) { return class_name.toUtf8().constData(); }
-        void setMode(UML_Class_Abbrev_Mode newMode)
-        {
-            mode = newMode;
-        }
+
         virtual int get_min_width(void);
         virtual void change_label(void);//QT
         void update_contents(UML_Class_Edit_Type,
                 const std::vector<QString>& lines,
                 const bool store_undo = true);
+#endif
 
         virtual QPainterPath buildPainterPath(void);
         virtual void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
@@ -169,6 +170,16 @@ class ClassShape: public RectangleShape {
          */
         virtual void setupForShapePickerDropOnCanvas(void);
 
+        virtual void setIdealPos(QPointF pos);
+        virtual QPointF idealPos();
+
+        void classNameAreaChanged(bool textChanged);
+        void classAttributesAreaChanged(bool textChanged);
+        void classMethodsAreaChanged(bool textChanged);
+
+        QString classNameAreaText;
+        QString classAttributesAreaText;
+        QString classMethodsAreaText;
 
     public slots:
         void classNameAreaChanged();
@@ -186,19 +197,26 @@ class ClassShape: public RectangleShape {
         std::vector<Attribute> attributes;
         std::vector<Method> methods;
 
-        QString classNameAreaText;
-        QString classAttributesAreaText;
-        QString classMethodsAreaText;
-
         int classWidth;
         int classNameSectionHeight;
         int classAttributesSectionHeight;
         int classMethodsSectionHeight;
 
-        bool mode_changed_manually;
-        UML_Class_Abbrev_Mode mode;
+        QPointF ideal_pos;
 
         void do_init(void);
+        void refresh();
+
+        void updateAllClassAreas();
+
+        QSizeF recalculateSize();
+        int getMaxWidth();
+        int getClassNameSectionHeight();
+        int getClassAttributesSectionHeight();
+        int getClassMethodsSectionHeight();
+
+#if 0
+        bool mode_changed_manually;
         int get_longest_text_width(UML_Class_Abbrev_Mode mode);
         void determine_best_mode(void);
         void determine_small_dimensions(int *w, int *h);
@@ -217,19 +235,10 @@ class ClassShape: public RectangleShape {
         int class_name_section_size;
         int attr_section_size;
         int method_section_size;
-
         void detailLevelChanged(void);
         void draw(QPixmap *surface, const int x, const int y, const int type, const int w, const int h);
+#endif
 
-        void refresh();
-
-        void updateAllClassAreas();
-
-        QSizeF recalculateSize();
-        int getMaxWidth();
-        int getClassNameSectionHeight();
-        int getClassAttributesSectionHeight();
-        int getClassMethodsSectionHeight();
 };
 
 

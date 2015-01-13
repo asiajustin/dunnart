@@ -4,8 +4,8 @@ TARGET = dunnartcanvas
 
 CONFIG += shared
 
-DEPENDPATH +=  .. ../libogdf .
-INCLUDEPATH += .. ../libogdf .
+DEPENDPATH +=  .. ../libogdf . ../plugins/shapes/uml/gen-ui
+INCLUDEPATH += .. ../libogdf . ../plugins/shapes/uml/gen-ui
 
 CONFIG += link_pkgconfig qt thread
 QT += xml svg widgets

@@ -13,7 +13,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software 
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, 
@@ -56,8 +56,9 @@ using Avoid::Point;
 #include "libdunnartcanvas/utility.h"
 #include "libdunnartcanvas/visibility.h"
 
-namespace dunnart {
+#include "libdunnartcanvas/pluginshapefactory.h"
 
+namespace dunnart {
 
 const QColor defaultConnLineCol = QColor(0, 0, 0);
 
@@ -92,17 +93,13 @@ Connector::Connector()
             "connector (disconnecting it from attached shapes).");
 
     headLabelRectangle1 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
-    headLabelRectangle1->setLabel("11A");
     headLabelRectangle2 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
-    headLabelRectangle2->setLabel("11B");
     middleLabelRectangle1 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
-    middleLabelRectangle1->setLabel("22A");
     middleLabelRectangle2 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
-    middleLabelRectangle2->setLabel("22B");
     tailLabelRectangle1 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
-    tailLabelRectangle1->setLabel("33A");
     tailLabelRectangle2 = new ConnectorLabel(this, QString(), ZORD_ConnectorLabel);
-    tailLabelRectangle2->setLabel("33B");
+
+    associationClass = NULL;
 }
 
 
@@ -178,6 +175,59 @@ void Connector::initWithXMLProperties(Canvas *canvas,
     }
     setProperty("directed", m_directed);
     //optionalProp(node, x_directed, m_is_directed, ns);
+
+    value = nodeAttribute(node, ns, "headLabelRectangle1");
+    if (!value.isNull())
+    {
+        headLabelRectangle1->setLabel(value);
+    }
+
+    value = nodeAttribute(node, ns, "headLabelRectangle2");
+    if (!value.isNull())
+    {
+        headLabelRectangle2->setLabel(value);
+    }
+
+    value = nodeAttribute(node, ns, "middleLabelRectangle1");
+    if (!value.isNull())
+    {
+        middleLabelRectangle1->setLabel(value);
+    }
+
+    value = nodeAttribute(node, ns, "middleLabelRectangle2");
+    if (!value.isNull())
+    {
+        middleLabelRectangle2->setLabel(value);
+    }
+
+    value = nodeAttribute(node, ns, "tailLabelRectangle1");
+    if (!value.isNull())
+    {
+        tailLabelRectangle1->setLabel(value);
+    }
+
+    value = nodeAttribute(node, ns, "tailLabelRectangle2");
+    if (!value.isNull())
+    {
+        tailLabelRectangle2->setLabel(value);
+    }
+
+    value = nodeAttribute(node, ns, "associationClass");
+    if (!value.isNull() && !value.isEmpty())
+    {
+        ShapeObj *sh = dynamic_cast<ShapeObj *>
+                (canvas->getItemByID(value));
+        std::cout << "Get Value: " << value.toStdString() << std::endl;
+        if(sh)
+        {
+            associationClass = sh;
+            std::cout << "Association Class" << std::endl;
+        }
+        else
+        {
+            std::cout << "Not an Association Class" << std::endl;
+        }
+    }
 
     m_src_pt.shape = NULL;
     m_src_pt.pinClassID = 0;
@@ -468,6 +518,23 @@ void Connector::addXmlProps(const unsigned int subset, QDomElement& node,
             newProp(node, "directed", m_directed);
         }
 
+        newProp(node, "headLabelRectangle1", headLabelRectangle1->label());
+        newProp(node, "headLabelRectangle2", headLabelRectangle2->label());
+        newProp(node, "middleLabelRectangle1", middleLabelRectangle1->label());
+        newProp(node, "middleLabelRectangle2", middleLabelRectangle2->label());
+        newProp(node, "tailLabelRectangle1", tailLabelRectangle1->label());
+        newProp(node, "tailLabelRectangle2", tailLabelRectangle2->label());
+
+        if (associationClass)
+        {
+            newProp(node, "associationClass", associationClass->idString());
+            std::cout << "Set Value: " << associationClass->idString().toStdString() << std::endl;
+        }
+        else
+        {
+            newProp(node, "associationClass", NULL);
+        }
+
         if (m_colour != defaultConnLineCol)
         {
             QString value;
@@ -631,7 +698,7 @@ void Connector::setDirected(const DirectedType directed)
 
     if (canvas())
     {
-        canvas()->interrupt_graph_layout();
+        canvas()->fully_restart_graph_layout();
     }
 }
 
@@ -696,6 +763,10 @@ void Connector::setArrowHeadHeadType(const Connector::ArrowHeadType arrowHeadHea
     m_arrowHead_head_type = arrowHeadHeadTypeVal;
     buildArrowHeadPath();
     update();
+    if (canvas())
+    {
+        canvas()->fully_restart_graph_layout();
+    }
 }
 
 Connector::ArrowHeadType Connector::arrowTailHeadType(void) const
@@ -721,7 +792,7 @@ void Connector::swapDirection(void)
 
     if (canvas())
     {
-        canvas()->interrupt_graph_layout();
+        canvas()->fully_restart_graph_layout();
     }
 }
 
@@ -1566,6 +1637,30 @@ QPainterPath Connector::shape() const
     return m_shape_path;
 }
 
+bool Connector::arrowHeadOutline(void)
+{
+    return m_arrow_head_outline;
+}
+
+bool Connector::arrowTailOutline(void)
+{
+    return m_arrow_tail_outline;
+}
+
+QPainterPath Connector::getArrowHeadPath(void)
+{
+    return m_arrowHead_path;
+}
+
+QPainterPath Connector::getArrowTailPath(void)
+{
+    return m_arrowTail_path;
+}
+
+QMap<int, double> Connector::getIdOffsetMap(void)
+{
+    return idOffsetMap;
+}
 
 void Connector::paint(QPainter *painter,
         const QStyleOptionGraphicsItem *option, QWidget *widget)
@@ -1674,6 +1769,96 @@ void Connector::paint(QPainter *painter,
     painter->setRenderHint(QPainter::TextAntialiasing, true);
     painter->drawText(painterPath().pointAtPercent(0.25), m_label);*/
 
+    if (!labelConnectorPath.isEmpty() && m_dst_pt.shape && !m_src_pt.shape->isBeingDragged()
+            && !m_dst_pt.shape->isBeingDragged() && !canvas()->layout()->isRunning())
+    {
+        QPen magentaPen(Qt::magenta);
+        magentaPen.setWidth(1);
+        magentaPen.setCosmetic(true);
+        // Draw highlight.
+        painter->setPen(magentaPen);
+        painter->drawPath(labelConnectorPath);
+        painter->setBrush(Qt::magenta);
+
+        if (!headLabelRectangle1->label().isEmpty() || !headLabelRectangle2->label().isEmpty())
+        {
+            painter->drawEllipse(srcLabelsAtConnectorPoint, 3, 3);
+        }
+        if (!middleLabelRectangle1->label().isEmpty() || !middleLabelRectangle2->label().isEmpty())
+        {
+            painter->drawEllipse(midLabelsAtConnectorPoint, 3, 3);
+        }
+        if (!tailLabelRectangle1->label().isEmpty() || !tailLabelRectangle2->label().isEmpty())
+        {
+            painter->drawEllipse(dstLabelsAtConnectorPoint, 3, 3);
+        }
+    }
+
+    if (associationClass && !associationClassConnectorPath.isEmpty() && m_dst_pt.shape && !m_src_pt.shape->isBeingDragged()
+            && !m_dst_pt.shape->isBeingDragged() && !associationClass->isBeingDragged() && !canvas()->layout()->isRunning())
+    {
+        QPen pen(m_colour);
+        pen.setWidth(1);
+        pen.setCosmetic(true);
+        QVector<qreal> dashes;
+        dashes << 5 << 3;
+        pen.setDashPattern(dashes);
+        // Draw highlight.
+        painter->setPen(pen);
+        painter->setBrush(Qt::NoBrush);
+        painter->drawPath(associationClassConnectorPath);
+    }
+}
+
+ShapeObj* Connector::getSrcShape()
+{
+    return m_src_pt.shape;
+}
+
+ShapeObj *Connector::getDstShape()
+{
+    return m_dst_pt.shape;
+}
+
+ConnectorLabel *Connector::getSrcLabelRectangle1(void)
+{
+    return headLabelRectangle1;
+}
+
+ConnectorLabel *Connector::getSrcLabelRectangle2(void)
+{
+    return headLabelRectangle2;
+}
+
+ConnectorLabel *Connector::getMiddleLabelRectangle1(void)
+{
+    return middleLabelRectangle1;
+}
+
+ConnectorLabel *Connector::getMiddleLabelRectangle2(void)
+{
+    return middleLabelRectangle2;
+}
+
+ConnectorLabel *Connector::getDstLabelRectangle1(void)
+{
+    return tailLabelRectangle1;
+}
+
+ConnectorLabel *Connector::getDstLabelRectangle2(void)
+{
+    return tailLabelRectangle2;
+}
+
+QPainterPath Connector::painterPath(void) const
+{
+    return CanvasItem::painterPath();
+}
+
+void Connector::updateIdealPosition()
+{
+    std::cout << "Connector::updateIdealPosition" << std::endl;
+
     double srcShapeWidth = (m_src_pt.shape == NULL) ? 0 : m_src_pt.shape->size().width();
     double srcShapeHeight = (m_src_pt.shape == NULL) ? 0 : m_src_pt.shape->size().height();
     double dstShapeWidth = (m_dst_pt.shape == NULL) ? 0 : m_dst_pt.shape->size().width();
@@ -1684,20 +1869,54 @@ void Connector::paint(QPainter *painter,
     double totalLength = painterPath().length();
     double minVisibleLength = totalLength - srcShapeMaxHiddenLength - dstShapeMaxHiddenLength;
 
-    double srcLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.1 * minVisibleLength;
+    double srcDstLabelsOffsetAtConnector = 10;
+
+    double srcLabelsAtConnectorLength = srcShapeMaxHiddenLength + srcDstLabelsOffsetAtConnector;
     double midLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.5 * minVisibleLength;
-    double dstLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.9 * minVisibleLength;
+    double dstLabelsAtConnectorLength = srcShapeMaxHiddenLength + minVisibleLength - srcDstLabelsOffsetAtConnector;
 
     double srcLabelsPercentAtLength = painterPath().percentAtLength(srcLabelsAtConnectorLength);
     double midLabelsPercentAtLength = painterPath().percentAtLength(midLabelsAtConnectorLength);
     double dstLabelsPercentAtLength = painterPath().percentAtLength(dstLabelsAtConnectorLength);
 
-    QPointF srcLabelsAtConnectorPoint = painterPath().pointAtPercent(srcLabelsPercentAtLength);
-    QPointF midLabelsAtConnectorPoint = painterPath().pointAtPercent(midLabelsPercentAtLength);
-    QPointF dstLabelsAtConnectorPoint = painterPath().pointAtPercent(dstLabelsPercentAtLength);
+    srcLabelsAtConnectorPoint = painterPath().pointAtPercent(srcLabelsPercentAtLength);
+    midLabelsAtConnectorPoint = painterPath().pointAtPercent(midLabelsPercentAtLength);
+    dstLabelsAtConnectorPoint = painterPath().pointAtPercent(dstLabelsPercentAtLength);
 
-    double offsetFromConnector = 30, srcLabel1X, srcLabel1Y, srcLabel2X, srcLabel2Y, midLabel1X, midLabel1Y,
-                                    midLabel2X, midLabel2Y, dstLabel1X, dstLabel1Y, dstLabel2X, dstLabel2Y;
+    double defaultOffsetFromConnector = 30, srcLabel1X, srcLabel1Y, srcLabel2X, srcLabel2Y, midLabel1X, midLabel1Y, midLabel2X, midLabel2Y,
+           dstLabel1X, dstLabel1Y, dstLabel2X, dstLabel2Y, associationClassX, associationClassY, associationClassOffsetFromConnector = 100,
+           srcLabel1OFC, srcLabel2OFC, midLabel1OFC, midLabel2OFC, dstLabel1OFC, dstLabel2OFC;
+
+    if (associationClass)
+    {
+        associationClassOffsetFromConnector = qMax(associationClassOffsetFromConnector,
+              (sqrt(pow(associationClass->width(), 2) + pow(associationClass->height(), 2)) + associationClassOffsetFromConnector) / 2);
+    }
+    idOffsetMap = QMap<int, double>();
+
+    srcLabel1OFC = qMax(defaultOffsetFromConnector,
+              (sqrt(pow(headLabelRectangle1->width(), 2) + pow(headLabelRectangle1->height(), 2)) + defaultOffsetFromConnector) / 2);
+    idOffsetMap.insert(headLabelRectangle1->internalId(), srcLabel1OFC);
+
+    srcLabel2OFC = qMax(defaultOffsetFromConnector,
+              (sqrt(pow(headLabelRectangle2->width(), 2) + pow(headLabelRectangle2->height(), 2)) + defaultOffsetFromConnector) / 2);
+    idOffsetMap.insert(headLabelRectangle2->internalId(), srcLabel2OFC);
+
+    midLabel1OFC = qMax(defaultOffsetFromConnector,
+              (sqrt(pow(middleLabelRectangle1->width(), 2) + pow(middleLabelRectangle1->height(), 2)) + defaultOffsetFromConnector) / 2);
+    idOffsetMap.insert(middleLabelRectangle1->internalId(), midLabel1OFC);
+
+    midLabel2OFC = qMax(defaultOffsetFromConnector,
+              (sqrt(pow(middleLabelRectangle2->width(), 2) + pow(middleLabelRectangle2->height(), 2)) + defaultOffsetFromConnector) / 2);
+    idOffsetMap.insert(middleLabelRectangle2->internalId(), midLabel2OFC);
+
+    dstLabel1OFC = qMax(defaultOffsetFromConnector,
+              (sqrt(pow(tailLabelRectangle1->width(), 2) + pow(tailLabelRectangle1->height(), 2)) + defaultOffsetFromConnector) / 2);
+    idOffsetMap.insert(tailLabelRectangle1->internalId(), dstLabel1OFC);
+
+    dstLabel2OFC = qMax(defaultOffsetFromConnector,
+              (sqrt(pow(tailLabelRectangle2->width(), 2) + pow(tailLabelRectangle2->height(), 2)) + defaultOffsetFromConnector) / 2);
+    idOffsetMap.insert(tailLabelRectangle2->internalId(), dstLabel2OFC);
 
     if (previousSrcPtY == 0 && m_src_pt.y != 0)
     {
@@ -1708,82 +1927,154 @@ void Connector::paint(QPainter *painter,
         previousDstPtY = m_dst_pt.y;
     }
 
-    if (m_src_pt.y == m_dst_pt.y && painterPath().length() == qAbs(m_src_pt.x - m_dst_pt.x))
+    if (m_src_pt.y == m_dst_pt.y && qAbs(m_src_pt.x - m_dst_pt.x) - totalLength <= 0.1)
     {
         srcLabel1X = srcLabel2X = srcLabelsAtConnectorPoint.x();
-        midLabel1X = midLabel2X = midLabelsAtConnectorPoint.x();
+        midLabel1X = midLabel2X = associationClassX = midLabelsAtConnectorPoint.x();
         dstLabel1X = dstLabel2X = dstLabelsAtConnectorPoint.x();
 
         if (m_src_pt.x < m_dst_pt.x)
         {
-            srcLabel1Y = srcLabelsAtConnectorPoint.y() - offsetFromConnector;
-            srcLabel2Y = srcLabelsAtConnectorPoint.y() + offsetFromConnector;
-            midLabel1Y = midLabelsAtConnectorPoint.y() - offsetFromConnector;
-            midLabel2Y = midLabelsAtConnectorPoint.y() + offsetFromConnector;
-            dstLabel1Y = dstLabelsAtConnectorPoint.y() - offsetFromConnector;
-            dstLabel2Y = dstLabelsAtConnectorPoint.y() + offsetFromConnector;
+            srcLabel1Y = srcLabelsAtConnectorPoint.y() - srcLabel1OFC;
+            srcLabel2Y = srcLabelsAtConnectorPoint.y() + srcLabel2OFC;
+            midLabel1Y = midLabelsAtConnectorPoint.y() - midLabel1OFC;
+            midLabel2Y = midLabelsAtConnectorPoint.y() + midLabel2OFC;
+            associationClassY = midLabelsAtConnectorPoint.y() + associationClassOffsetFromConnector;
+            dstLabel1Y = dstLabelsAtConnectorPoint.y() - dstLabel1OFC;
+            dstLabel2Y = dstLabelsAtConnectorPoint.y() + dstLabel2OFC;
         }
         else
         {
-            srcLabel1Y = srcLabelsAtConnectorPoint.y() + offsetFromConnector;
-            srcLabel2Y = srcLabelsAtConnectorPoint.y() - offsetFromConnector;
-            midLabel1Y = midLabelsAtConnectorPoint.y() + offsetFromConnector;
-            midLabel2Y = midLabelsAtConnectorPoint.y() - offsetFromConnector;
-            dstLabel1Y = dstLabelsAtConnectorPoint.y() + offsetFromConnector;
-            dstLabel2Y = dstLabelsAtConnectorPoint.y() - offsetFromConnector;
+            srcLabel1Y = srcLabelsAtConnectorPoint.y() + srcLabel1OFC;
+            srcLabel2Y = srcLabelsAtConnectorPoint.y() - srcLabel2OFC;
+            midLabel1Y = midLabelsAtConnectorPoint.y() + midLabel1OFC;
+            midLabel2Y = midLabelsAtConnectorPoint.y() - midLabel2OFC;
+            associationClassY = midLabelsAtConnectorPoint.y() - associationClassOffsetFromConnector;
+            dstLabel1Y = dstLabelsAtConnectorPoint.y() + dstLabel1OFC;
+            dstLabel2Y = dstLabelsAtConnectorPoint.y() - dstLabel2OFC;
         }
     }
     else
     {
-        double slopForSrcLabelsLine = -1 / painterPath().slopeAtPercent(srcLabelsPercentAtLength);
-        double slopForMidLabelsLine = -1 / painterPath().slopeAtPercent(midLabelsPercentAtLength);
-        double slopForDstLabelsLine = -1 / painterPath().slopeAtPercent(dstLabelsPercentAtLength);
+        double slopeForSrcLabelsLine = -1 / painterPath().slopeAtPercent(srcLabelsPercentAtLength);
+        double slopeForMidLabelsLine = -1 / painterPath().slopeAtPercent(midLabelsPercentAtLength);
+        double slopeForDstLabelsLine = -1 / painterPath().slopeAtPercent(dstLabelsPercentAtLength);
 
         double interceptForSrcLabelsLine =
-                srcLabelsAtConnectorPoint.y() - slopForSrcLabelsLine * srcLabelsAtConnectorPoint.x();
+                srcLabelsAtConnectorPoint.y() - slopeForSrcLabelsLine * srcLabelsAtConnectorPoint.x();
         double interceptForMidLabelsLine =
-                midLabelsAtConnectorPoint.y() - slopForMidLabelsLine * midLabelsAtConnectorPoint.x();
+                midLabelsAtConnectorPoint.y() - slopeForMidLabelsLine * midLabelsAtConnectorPoint.x();
         double interceptForDstLabelsLine =
-                dstLabelsAtConnectorPoint.y() - slopForDstLabelsLine * dstLabelsAtConnectorPoint.x();
+                dstLabelsAtConnectorPoint.y() - slopeForDstLabelsLine * dstLabelsAtConnectorPoint.x();
 
-        double sencondPartForSrcLabelXs = sqrt(pow(offsetFromConnector, 2) / (pow(slopForSrcLabelsLine, 2) + 1));
-        double sencondPartForMidLabelXs = sqrt(pow(offsetFromConnector, 2) / (pow(slopForMidLabelsLine, 2) + 1));
-        double sencondPartForDstLabelXs = sqrt(pow(offsetFromConnector, 2) / (pow(slopForDstLabelsLine, 2) + 1));
+        double secondPartForSrcLabel1X = sqrt(pow(srcLabel1OFC, 2) / (pow(slopeForSrcLabelsLine, 2) + 1));
+        double secondPartForSrcLabel2X = sqrt(pow(srcLabel2OFC, 2) / (pow(slopeForSrcLabelsLine, 2) + 1));
+        double secondPartForMidLabel1X = sqrt(pow(midLabel1OFC, 2) / (pow(slopeForMidLabelsLine, 2) + 1));
+        double secondPartForMidLabel2X = sqrt(pow(midLabel2OFC, 2) / (pow(slopeForMidLabelsLine, 2) + 1));
+        double secondPartForAssociationClassX = sqrt(pow(associationClassOffsetFromConnector, 2) / (pow(slopeForMidLabelsLine, 2) + 1));
+        double secondPartForDstLabel1X = sqrt(pow(dstLabel1OFC, 2) / (pow(slopeForDstLabelsLine, 2) + 1));
+        double secondPartForDstLabel2X = sqrt(pow(dstLabel2OFC, 2) / (pow(slopeForDstLabelsLine, 2) + 1));
 
         if (previousSrcPtY < previousDstPtY && m_src_pt.y <= m_dst_pt.y)
         {
-            srcLabel1X = srcLabelsAtConnectorPoint.x() + sencondPartForSrcLabelXs;
-            srcLabel2X = srcLabelsAtConnectorPoint.x() - sencondPartForSrcLabelXs;
-            midLabel1X = midLabelsAtConnectorPoint.x() + sencondPartForMidLabelXs;
-            midLabel2X = midLabelsAtConnectorPoint.x() - sencondPartForMidLabelXs;
-            dstLabel1X = dstLabelsAtConnectorPoint.x() + sencondPartForDstLabelXs;
-            dstLabel2X = dstLabelsAtConnectorPoint.x() - sencondPartForDstLabelXs;
+            srcLabel1X = srcLabelsAtConnectorPoint.x() + secondPartForSrcLabel1X;
+            srcLabel2X = srcLabelsAtConnectorPoint.x() - secondPartForSrcLabel2X;
+            midLabel1X = midLabelsAtConnectorPoint.x() + secondPartForMidLabel1X;
+            midLabel2X = midLabelsAtConnectorPoint.x() - secondPartForMidLabel2X;
+            associationClassX = midLabelsAtConnectorPoint.x() - secondPartForAssociationClassX;
+            dstLabel1X = dstLabelsAtConnectorPoint.x() + secondPartForDstLabel1X;
+            dstLabel2X = dstLabelsAtConnectorPoint.x() - secondPartForDstLabel2X;
         }
         else if (previousSrcPtY > previousDstPtY && m_src_pt.y >= m_dst_pt.y) {
-            srcLabel1X = srcLabelsAtConnectorPoint.x() - sencondPartForSrcLabelXs;
-            srcLabel2X = srcLabelsAtConnectorPoint.x() + sencondPartForSrcLabelXs;
-            midLabel1X = midLabelsAtConnectorPoint.x() - sencondPartForMidLabelXs;
-            midLabel2X = midLabelsAtConnectorPoint.x() + sencondPartForMidLabelXs;
-            dstLabel1X = dstLabelsAtConnectorPoint.x() - sencondPartForDstLabelXs;
-            dstLabel2X = dstLabelsAtConnectorPoint.x() + sencondPartForDstLabelXs;
+            srcLabel1X = srcLabelsAtConnectorPoint.x() - secondPartForSrcLabel1X;
+            srcLabel2X = srcLabelsAtConnectorPoint.x() + secondPartForSrcLabel2X;
+            midLabel1X = midLabelsAtConnectorPoint.x() - secondPartForMidLabel1X;
+            midLabel2X = midLabelsAtConnectorPoint.x() + secondPartForMidLabel2X;
+            associationClassX = midLabelsAtConnectorPoint.x() + secondPartForAssociationClassX;
+            dstLabel1X = dstLabelsAtConnectorPoint.x() - secondPartForDstLabel1X;
+            dstLabel2X = dstLabelsAtConnectorPoint.x() + secondPartForDstLabel2X;
         }
-        srcLabel1Y = slopForSrcLabelsLine * srcLabel1X + interceptForSrcLabelsLine;
-        srcLabel2Y = slopForSrcLabelsLine * srcLabel2X + interceptForSrcLabelsLine;
-        midLabel1Y = slopForMidLabelsLine * midLabel1X + interceptForMidLabelsLine;
-        midLabel2Y = slopForMidLabelsLine * midLabel2X + interceptForMidLabelsLine;
-        dstLabel1Y = slopForDstLabelsLine * dstLabel1X + interceptForDstLabelsLine;
-        dstLabel2Y = slopForDstLabelsLine * dstLabel2X + interceptForDstLabelsLine;
+        srcLabel1Y = slopeForSrcLabelsLine * srcLabel1X + interceptForSrcLabelsLine;
+        srcLabel2Y = slopeForSrcLabelsLine * srcLabel2X + interceptForSrcLabelsLine;
+        midLabel1Y = slopeForMidLabelsLine * midLabel1X + interceptForMidLabelsLine;
+        midLabel2Y = slopeForMidLabelsLine * midLabel2X + interceptForMidLabelsLine;
+        associationClassY = slopeForMidLabelsLine * associationClassX + interceptForMidLabelsLine;
+        dstLabel1Y = slopeForDstLabelsLine * dstLabel1X + interceptForDstLabelsLine;
+        dstLabel2Y = slopeForDstLabelsLine * dstLabel2X + interceptForDstLabelsLine;
+    }
+
+    QPointF idealPosition = this->mapToScene(QPointF(associationClassX, associationClassY));
+
+    if (associationClass && associationClass->width() < 15 && associationClass->height() < 15)
+    {
+        associationClass->initWithDimensions(0, idealPosition.x(), idealPosition.y(), 70, 50);
+        associationClass->setCanvasItemFlag(CanvasItem::ItemIsMovable, true);
+        UndoMacro *macro = canvas()->beginUndoMacro(tr("Add Association Class"));
+        QUndoCommand *cmd = new CmdCanvasSceneAddItem(canvas(), associationClass);
+        macro->addCommand(cmd);
+
+        canvas()->interrupt_graph_layout();
+    }
+
+    labelConnectorPath = QPainterPath();
+
+    if (!headLabelRectangle1->label().isEmpty())
+    {
+        labelConnectorPath.moveTo(headLabelRectangle1->pos());
+        labelConnectorPath.lineTo(srcLabelsAtConnectorPoint);
+    }
+    if (!headLabelRectangle2->label().isEmpty())
+    {
+        labelConnectorPath.moveTo(headLabelRectangle2->pos());
+        labelConnectorPath.lineTo(srcLabelsAtConnectorPoint);
+    }
+    if (!middleLabelRectangle1->label().isEmpty())
+    {
+        labelConnectorPath.moveTo(middleLabelRectangle1->pos());
+        labelConnectorPath.lineTo(midLabelsAtConnectorPoint);
+    }
+    if (!middleLabelRectangle2->label().isEmpty())
+    {
+        labelConnectorPath.moveTo(middleLabelRectangle2->pos());
+        labelConnectorPath.lineTo(midLabelsAtConnectorPoint);
+    }
+    if (!tailLabelRectangle1->label().isEmpty())
+    {
+        labelConnectorPath.moveTo(tailLabelRectangle1->pos());
+        labelConnectorPath.lineTo(dstLabelsAtConnectorPoint);
+    }
+    if (!tailLabelRectangle2->label().isEmpty())
+    {
+        labelConnectorPath.moveTo(tailLabelRectangle2->pos());
+        labelConnectorPath.lineTo(dstLabelsAtConnectorPoint);
+    }
+
+    if (associationClass)
+    {
+        associationClassConnectorPath = QPainterPath();
+        associationClassConnectorPath.moveTo(this->mapFromScene(associationClass->centrePos()));
+        associationClassConnectorPath.lineTo(midLabelsAtConnectorPoint);
+    }
+
+    // Stop laying out when the user is dragging to instantiate a connector; ideal positions only be set when end shapes are dragged
+    if (!m_dst_pt.shape || m_src_pt.shape->isSelected() || m_dst_pt.shape->isSelected() || canvas()->layout()->isRunning())
+    {
+        headLabelRectangle1->setIdealPos(QPoint(srcLabel1X, srcLabel1Y));
+        headLabelRectangle2->setIdealPos(QPoint(srcLabel2X, srcLabel2Y));
+        middleLabelRectangle1->setIdealPos(QPoint(midLabel1X, midLabel1Y));
+        middleLabelRectangle2->setIdealPos(QPoint(midLabel2X, midLabel2Y));
+        tailLabelRectangle1->setIdealPos(QPoint(dstLabel1X, dstLabel1Y));
+        tailLabelRectangle2->setIdealPos(QPoint(dstLabel2X, dstLabel2Y));
+
+        if (associationClass && (canvas()->layout()->isRunning() && !associationClass->isSelected()
+                                 || !canvas()->layout()->isRunning()))
+        {
+            associationClass->setIdealPos(idealPosition);
+        }
     }
 
     previousSrcPtY = m_src_pt.y;
     previousDstPtY = m_dst_pt.y;
-
-    headLabelRectangle1->setPos(QPoint(srcLabel1X, srcLabel1Y));
-    headLabelRectangle2->setPos(QPoint(srcLabel2X, srcLabel2Y));
-    middleLabelRectangle1->setPos(QPoint(midLabel1X, midLabel1Y));
-    middleLabelRectangle2->setPos(QPoint(midLabel2X, midLabel2Y));
-    tailLabelRectangle1->setPos(QPoint(dstLabel1X, dstLabel1Y));
-    tailLabelRectangle2->setPos(QPoint(dstLabel2X, dstLabel2Y));
 }
 
 
@@ -1824,14 +2115,17 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
     QAction *makeEitherDirected = menu.addAction(tr("Make a side directed"));
     QAction *makeBothDirected = menu.addAction(tr("Make both sides directed"));
     QAction *makeUndirected = menu.addAction(tr("Make both sides undirected"));
-    QAction *swapDirection = menu.addAction(
-            tr("Switch direction"));
+    QAction *swapDirection = menu.addAction(tr("Switch direction"));
+    menu.addSeparator();
+    QAction *addLabels = menu.addAction(tr("Add Labels"));
+    QAction *removeAllLabels = menu.addAction(tr("Remove All Labels"));
+    QAction *addAssociationClass = menu.addAction(tr("Add Association Class"));
+    QAction *deleteAssociationClass = menu.addAction(tr("Delete Association Class"));
     menu.addSeparator();
     QAction *automaticRouting = menu.addAction(tr("Use automatic routing"));
     QAction *fixedRouting = menu.addAction(tr("Use fixed routing"));
     menu.addSeparator();
-    QAction *addCheckpoint = menu.addAction(
-            tr("Add routing checkpoint at cursor"));
+    QAction *addCheckpoint = menu.addAction(tr("Add routing checkpoint at cursor"));
 
     bool selectedBothDirectedConns = false;
     bool selectedEitherDirectedConns = false;
@@ -1840,6 +2134,10 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
     bool selectedOrthogonalConns = false;
     bool selectedAutomaticallyRoutedConns = false;
     bool selectedManuallyRoutedConns = false;
+    bool selectedAddAssociationClass = false;
+    bool selectedDeleteAssociationClass = false;
+    bool selectedAddLabels = false;
+    bool selectedRemoveAllLabels = false;
     foreach (Connector *connector, selectedConns)
     {
         if (connector->getDirected() == neither)
@@ -1871,6 +2169,25 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
         else
         {
             selectedAutomaticallyRoutedConns = true;
+        }
+
+        if (!associationClass)
+        {
+            selectedDeleteAssociationClass = true;
+        }
+        else
+        {
+            selectedAddAssociationClass = true;
+        }
+
+        if (headLabelRectangle1->label().isEmpty() && headLabelRectangle2->label().isEmpty() && middleLabelRectangle1->label().isEmpty() &&
+            middleLabelRectangle2->label().isEmpty() && tailLabelRectangle1->label().isEmpty() && tailLabelRectangle2->label().isEmpty())
+        {
+            selectedRemoveAllLabels = true;
+        }
+        else
+        {
+            selectedAddLabels = true;
         }
     }
     if (selectedEitherDirectedConns)
@@ -1904,6 +2221,22 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
     if (selectedAutomaticallyRoutedConns == false)
     {
         fixedRouting->setVisible(false);
+    }
+    if (selectedAddAssociationClass == false)
+    {
+        deleteAssociationClass->setVisible(false);
+    }
+    if (selectedDeleteAssociationClass == false)
+    {
+        addAssociationClass->setVisible(false);
+    }
+    if (selectedAddLabels == false)
+    {
+        removeAllLabels->setVisible(false);
+    }
+    if (selectedRemoveAllLabels == false)
+    {
+        addLabels->setVisible(false);
     }
 
     QAction *action = CanvasItem::buildAndExecContextMenu(event, menu);
@@ -1962,6 +2295,38 @@ QAction *Connector::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event,
             else if (action == automaticRouting)
             {
                 connector->avoidRef->clearFixedRoute();
+            }
+            else if (action == addAssociationClass)
+            {
+                PluginShapeFactory *factory = sharedPluginShapeFactory();
+                associationClass = factory->createShape("umlClass");
+                updateIdealPosition();
+            }
+            else if (action == deleteAssociationClass)
+            {
+                canvas()->deselectAll();
+                associationClass->setSelected(true);
+                canvas()->deleteSelection();
+                //delete associationClass;
+                associationClass = NULL;
+            }
+            else if (action == addLabels)
+            {
+                headLabelRectangle1->setLabel("1");
+                headLabelRectangle2->setLabel("2");
+                middleLabelRectangle1->setLabel("3");
+                middleLabelRectangle2->setLabel("4");
+                tailLabelRectangle1->setLabel("5");
+                tailLabelRectangle2->setLabel("6");
+            }
+            else if (action == removeAllLabels)
+            {
+                headLabelRectangle1->setLabel("");
+                headLabelRectangle2->setLabel("");
+                middleLabelRectangle1->setLabel("");
+                middleLabelRectangle2->setLabel("");
+                tailLabelRectangle1->setLabel("");
+                tailLabelRectangle2->setLabel("");
             }
         }
     }

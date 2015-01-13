@@ -114,7 +114,8 @@ static void levelAssignmentTraverse(unsigned ind, unsigned newLevel,
 GraphData::GraphData(Canvas *canvas, bool ignoreEdges, 
         GraphLayout::Mode mode, bool beautify, unsigned topologyNodesCount) 
     : canvas_(canvas),
-      topologyNodesCount(topologyNodesCount) 
+      topologyNodesCount(topologyNodesCount),
+      k_undefined(-1)
 {
     Q_UNUSED (beautify)
 
@@ -238,6 +239,7 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
     // create edges
     vector<Distribution*> distrolist;
     vector<Separation*> separationlist;
+
     if (!ignoreEdges)
     {
         for (int i = 0; i < canvasObjects.size(); ++i)
@@ -284,6 +286,7 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
             for (uint i = 0; i < conn_vec.size(); ++i)
             {
                 if (conn_vec[i]->getDirected() == Connector::neither ||
+                    conn_vec[i]->getDirected() == Connector::both ||
                      ! conn_vec[i]->obeysDirectedEdgeConstraints() )
                 {
                     // Don't constrain undirected edges, or those
@@ -418,8 +421,8 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
                                 {
                                     if (nodeInfo[*it].children.size() > 0)
                                     {
-                                        shape_vec[*it]->setProperty("layeredEndConnectorGroup",
-                                                QVariant(number++));
+                                        /*shape_vec[*it]->setProperty("layeredEndConnectorGroup",
+                                                QVariant(number++));*/
                                     }
                                 }
                             }
@@ -434,8 +437,8 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
                                             nodeInfo[*it].parents.begin();
                                             ch != nodeInfo[*it].parents.end(); ++ch)
                                     {
-                                        shape_vec[*ch]->setProperty("layeredEndConnectorGroup",
-                                                QVariant(number));
+                                        /*shape_vec[*ch]->setProperty("layeredEndConnectorGroup",
+                                                QVariant(number));*/
                                     }
                                     if (nodeInfo[*it].parents.size() > 0)
                                     {
@@ -455,8 +458,8 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
                                 {
                                     if (nodeInfo[*it].parents.size() > 0)
                                     {
-                                        shape_vec[*it]->setProperty("layeredEndConnectorGroup",
-                                                QVariant(number++));
+                                       /* shape_vec[*it]->setProperty("layeredEndConnectorGroup",
+                                                QVariant(number++));*/
                                     }
                                 }
                             }
@@ -471,14 +474,15 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
                                             nodeInfo[*it].children.begin();
                                             ch != nodeInfo[*it].children.end(); ++ch)
                                     {
-                                        shape_vec[*ch]->setProperty("layeredEndConnectorGroup",
-                                                QVariant(number));
+                                        /*shape_vec[*ch]->setProperty("layeredEndConnectorGroup",
+                                                QVariant(number));*/
                                     }
                                     if (nodeInfo[*it].children.size() > 0)
                                     {
                                         number++;
                                     }
-                                }                            }
+                                }
+                            }
                         }
                     }
 
@@ -513,10 +517,10 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
                             startPadding = levelShapeLength[level] / 2.0;
                             endPadding = levelShapeLength[level] / 2.0;
                         }
-                        shape_vec[*it]->setProperty("layeredStartChannelPadding",
+                        /*shape_vec[*it]->setProperty("layeredStartChannelPadding",
                                 QVariant(startPadding));
                         shape_vec[*it]->setProperty("layeredEndChannelPadding",
-                                QVariant(endPadding));
+                                QVariant(endPadding));*/
 
                         alignment->addShape(*it, offset);
                     }
@@ -576,6 +580,251 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
                 }
                 */
             }
+        }
+    }
+    else
+    {
+        std::cout << "ELSE$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" << std::endl;
+        for (int i = 0; i < canvasObjects.count(); ++i)
+        {
+            Connector *connector = dynamic_cast<Connector *> (canvasObjects.at(i));
+            if (connector && connector->getDirected() == Connector::either && connector->obeysDirectedEdgeConstraints() &&
+                    connector->arrowHeadHeadType() == Connector::triangle_outline)
+            {
+                QPair<CPoint, CPoint> connpts = connector->get_connpts();
+                ShapeObj *firstShape = connpts.first.shape;
+                ShapeObj *secondShape = connpts.second.shape;
+                if(!firstShape || !secondShape) {
+                    qWarning("dangling connector!");
+                    continue;
+                }
+
+                conn_vec1.push_back(connector);
+                edges1.push_back(std::make_pair(shapeIndexLookup.value(secondShape), shapeIndexLookup.value(firstShape)));
+            }
+        }
+
+        // Set up downward edge constraints.
+        // In the case that the graph isn't a DAG, i.e., has cycles, we
+        // don't constrain any of the edges that form a cycle.  We do
+        // this by computing the strongly connected components for the
+        // Graph and only add a downward edge constraint between two
+        // nodes (connector endpoints) if they are not part of the same
+        // strongly connected component.
+        QVector<int> sccIndexes = stronglyConnectedComponentIndexes();
+
+        std::vector<NodeLevelInfo> nodeInfo(shape_vec.size());
+
+        for (uint i = 0; i < conn_vec1.size(); ++i)
+        {
+            if (!(conn_vec1[i]->getDirected() == Connector::either && conn_vec1[i]->obeysDirectedEdgeConstraints()))
+            {
+                // Don't constrain undirected edges, or those
+                // ignoring downward edge constraints.
+                conn_vec1[i]->setHasDownwardConstraint(false);
+                continue;
+            }
+
+            cola::Edge edge = edges1[i];
+            if (sccIndexes[edge.first] != sccIndexes[edge.second])
+            {
+                unsigned firstIndex = edge.first;
+                unsigned secondIndex = edge.second;
+
+                // Save the hierarchy information so we can align the
+                // layers together.
+                nodeInfo[firstIndex].children.insert(secondIndex);
+                nodeInfo[secondIndex].parents.insert(firstIndex);
+                nodeInfo[firstIndex].sighted = true;
+                nodeInfo[secondIndex].sighted = true;
+                nodeInfo[secondIndex].isRoot = false;
+
+                conn_vec1[i]->setHasDownwardConstraint(true);
+            }
+            else
+            {
+                conn_vec1[i]->setHasDownwardConstraint(false);
+            }
+        }
+
+        // Apply level constraints.
+        // Assign levels for each node.
+        unsigned maxLevel = 0;
+        for (size_t ind = 0; ind < shape_vec.size(); ++ind)
+        {
+            if (nodeInfo[ind].isRoot && nodeInfo[ind].sighted)
+            {
+                levelAssignmentTraverse(ind, nodeInfo[ind].level + 1,
+                        maxLevel, nodeInfo);
+            }
+        }
+
+        // Create list of nodes in each level and remember the size
+        // of the largest
+        std::vector<std::set<unsigned> > levelLists(maxLevel);
+        std::vector<double> levelShapeLength(maxLevel, 0.0);
+        for (size_t ind = 0; ind < shape_vec.size(); ++ind)
+        {
+            // Clear the layer channel padding information.
+            /*shape_vec[ind]->setProperty("layeredStartChannelPadding",
+                    QVariant());
+            shape_vec[ind]->setProperty("layeredEndChannelPadding",
+                    QVariant());
+            shape_vec[ind]->setProperty("layeredEndConnectorGroup",
+                    QVariant());*/
+            // Store level information.
+            if (nodeInfo[ind].level > 0)
+            {
+                size_t level = nodeInfo[ind].level - 1;
+                levelLists[level].insert(ind);
+                levelShapeLength[level] = qMax(
+                        levelShapeLength[level],
+                        rs[ind]->length(vpsc::YDIM));
+            }
+        }
+
+        // Align each level.
+        cola::AlignmentConstraint *prevLevelAlignment = NULL;
+        for (size_t level = 0; level < maxLevel; ++level)
+        {
+            // Set of nodes in this level.
+            std::set<unsigned>& nodes = levelLists[level];
+
+            int prevSources = 0;
+            int currSources = 0;
+            if (level > 0)
+            {
+                // Find the number of connector sources on each side
+                // of the channel between levels.  The nodes if the
+                // previous level are in "prevNodes" and the nodes of
+                // this level are in "nodes".
+                for (std::set<unsigned>::const_iterator it = nodes.begin();
+                        it != nodes.end(); ++it)
+                {
+                    if (nodeInfo[*it].parents.size() > 0)
+                    {
+                        currSources++;
+                    }
+                }
+                std::set<unsigned>& prevNodes = levelLists[level - 1];
+                for (std::set<unsigned>::const_iterator it = prevNodes.begin();
+                        it != prevNodes.end(); ++it)
+                {
+                    if (nodeInfo[*it].children.size() > 0)
+                    {
+                        prevSources++;
+                    }
+                }
+
+                // Based on the numer of sources on the smaller side,
+                // give an ordering to the nodes where these
+                // connectors terminate.  For example in a directed
+                // tree flowing to th left, three nodes on one level
+                // might point to seven nodes, so each of the seven
+                // nodes would be given a group based on the three
+                // sources [0-2].  This is not the best solution, but
+                // it is fairly simple and easy to compute.
+                if (prevSources < currSources)
+                {
+                    // Connectors point to nodes in "nodes".
+                    int number = 0;
+                    for (std::set<unsigned>::const_iterator it = prevNodes.begin();
+                            it != prevNodes.end(); ++it)
+                    {
+                        if (nodeInfo[*it].children.size() > 0)
+                        {
+                            /*shape_vec[*it]->setProperty("layeredEndConnectorGroup",
+                                    QVariant(number++));*/
+                        }
+                    }
+                }
+                else
+                {
+                    // Connectors point to nodes in "prevNodes".
+                    int number = 0;
+                    for (std::set<unsigned>::const_iterator it = nodes.begin();
+                            it != nodes.end(); ++it)
+                    {
+                        for (std::set<unsigned>::const_iterator ch =
+                                nodeInfo[*it].parents.begin();
+                                ch != nodeInfo[*it].parents.end(); ++ch)
+                        {
+                            /*shape_vec[*ch]->setProperty("layeredEndConnectorGroup",
+                                    QVariant(number));*/
+                        }
+                        if (nodeInfo[*it].parents.size() > 0)
+                        {
+                            number++;
+                        }
+                    }
+                }
+            }
+
+            // Set layer channel padding information for each shape on
+            // this level, and add it to the alignment relationship.
+            // The channel padding information is used for centring
+            // all connectors at the same point between levels.
+            cola::AlignmentConstraint *alignment =
+                    new cola::AlignmentConstraint(vpsc::YDIM);
+            for (std::set<unsigned>::const_iterator it = nodes.begin();
+                    it != nodes.end(); ++it)
+            {
+                double offset = 0;
+                double modifier = -1;
+                double distToEdge = rs[*it]->length(vpsc::YDIM) / 2.0;
+                double startPadding = 0.0;
+                double endPadding = 0.0;
+                if (layeredAlignment == Canvas::ShapeStart)
+                {
+                    offset = modifier * distToEdge;
+                    startPadding = distToEdge;
+                    endPadding = levelShapeLength[level] - distToEdge;
+                }
+                else if (layeredAlignment == Canvas::ShapeEnd)
+                {
+                    offset = modifier * -distToEdge;
+                    startPadding = levelShapeLength[level] - distToEdge;
+                    endPadding = distToEdge;
+                }
+                else
+                {
+                    startPadding = levelShapeLength[level] / 2.0;
+                    endPadding = levelShapeLength[level] / 2.0;
+                }
+                /*shape_vec[*it]->setProperty("layeredStartChannelPadding",
+                        QVariant(startPadding));
+                shape_vec[*it]->setProperty("layeredEndChannelPadding",
+                        QVariant(endPadding));*/
+
+                alignment->addShape(*it, offset);
+            }
+            ccs.push_back(alignment);
+
+            if (prevLevelAlignment)
+            {
+
+                // Determine padding between this level and previous.
+                double padding = 0;
+                if (layeredAlignment == Canvas::ShapeMiddle)
+                {
+                    padding = (levelShapeLength[level] / 2.0) +
+                            (levelShapeLength[level - 1] / 2.0);
+                }
+                else if (layeredAlignment == Canvas::ShapeStart)
+                {
+                    padding = levelShapeLength[level];
+                }
+                else if (layeredAlignment == Canvas::ShapeEnd)
+                {
+                    padding = levelShapeLength[level - 1];
+                }
+
+                // Create a separation constraint between this level's
+                // alignment and the one for the previous level.
+                ccs.push_back(new cola::SeparationConstraint(vpsc::YDIM, prevLevelAlignment, alignment, padding +
+                      (canvas_->m_ideal_connector_length * canvas_->optIdealEdgeLengthModifier() * canvas_->m_flow_separation_modifier)));
+            }
+            prevLevelAlignment = alignment;
         }
     }
 
@@ -692,6 +941,79 @@ GraphData::GraphData(Canvas *canvas, bool ignoreEdges,
 
     qDebug("GraphData ctor done: ccs=%d, rs=%d",
            (int) ccs.size(), (int) rs.size());
+}
+
+QVector<int> GraphData::stronglyConnectedComponentIndexes(void)
+{
+    m_index = 0;
+    m_scc_index = 0;
+    int shapesCount = shape_vec.size();
+
+    m_indexes = QVector<int>(shapesCount, k_undefined);
+    m_scc_indexes = QVector<int>(shapesCount, 0);
+    m_lowlinks = QVector<int>(shapesCount, 0);
+    m_in_stack = QVector<bool>(shapesCount, false);
+    m_stack.clear();
+
+    for (int i = 0; i < shapesCount; ++i)
+    {
+        if (m_indexes[i] == k_undefined)
+        {
+            strongConnect(i);
+        }
+    }
+    return m_scc_indexes;
+}
+
+
+void GraphData::strongConnect(uint v)
+{
+    // Set the depth index for v to the smallest unused index
+    m_indexes[v] = m_index;
+    m_lowlinks[v] = m_index;
+    m_index++;
+    m_stack.push(v);
+    m_in_stack[v] = true;
+
+
+    // Consider successors of v
+    for (uint edgeInd = 0; edgeInd < conn_vec1.size(); ++edgeInd)
+    {
+        // for each (v, w) in E
+        cola::Edge edge = edges1[edgeInd];
+        if ( (edge.first == v) && conn_vec1[edgeInd]->getDirected() == Connector::either &&
+                conn_vec1[edgeInd]->obeysDirectedEdgeConstraints() )
+        {
+            int w = edge.second;
+            if (m_indexes[w] == k_undefined)
+            {
+                // Successor w has not yet been visited; recurse on it
+                strongConnect(w);
+                m_lowlinks[v] = qMin(m_lowlinks[v], m_lowlinks[w]);
+            }
+            else if (m_in_stack[w])
+            {
+                // Successor w is in stack S and hence in the current SCC
+                m_lowlinks[v] = qMin(m_lowlinks[v], m_indexes[w]);
+            }
+        }
+    }
+
+    // If v is a root node, pop the stack and generate an SCC
+    if (m_lowlinks[v] == m_indexes[v])
+    {
+        // start a new strongly connected component
+        m_scc_index++;
+        uint w;
+        do
+        {
+            w = m_stack.pop();
+            m_in_stack[w] = false;
+            // add w to current strongly connected component
+            m_scc_indexes[w] = m_scc_index;
+        }
+        while (w != v);
+    }
 }
 
 
@@ -978,8 +1300,9 @@ size_t GraphData::shapeToNode(ShapeObj* shape) {
         qWarning("dummy node, size<1 found - allowing overlap");
         allowOverlap=true;
     }
-    vpsc::Rectangle *r = new vpsc::Rectangle(rect.left(), rect.right(),
-            rect.top(), rect.bottom(), allowOverlap);
+    double labelOverlapProtectionPadding = 0;
+    vpsc::Rectangle *r = new vpsc::Rectangle(rect.left() - labelOverlapProtectionPadding, rect.right() + labelOverlapProtectionPadding,
+            rect.top() - labelOverlapProtectionPadding, rect.bottom() + labelOverlapProtectionPadding, allowOverlap);
     qWarning("Node id=%d, (x,y)=(%f,%f), (w,h)=%f,%f",
             shape->internalId(),r->getCentreX(), r->getCentreY(),
             r->width(), r->height());
@@ -991,6 +1314,7 @@ size_t GraphData::shapeToNode(ShapeObj* shape) {
         topologyNodes.push_back(new topology::Node(nodeID,r));
     }
 
+    shapeIndexLookup.insert(shape, shape_vec.size());
     shape_vec.push_back(shape);
 
     return rs.size() - 1;

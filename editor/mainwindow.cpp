@@ -207,7 +207,7 @@ MainWindow::MainWindow(Application *app)
     m_action_show_canvas_overview_dialog->setCheckable(true);
 
     m_action_show_main_canvas_overview_dialog = new QAction(
-            tr("Main Canvas Overview"), this);
+            tr("Hierarchical Overview"), this);
     m_action_show_main_canvas_overview_dialog->setCheckable(true);
 
     m_action_show_search_widget = new QAction(
@@ -396,9 +396,9 @@ MainWindow::MainWindow(Application *app)
     addDockWidget(Qt::LeftDockWidgetArea, m_dialog_main_canvas_overview);
     m_dialog_main_canvas_overview->hide();
 
-    m_search_widget = new SearchWidget(canvas, this);
-    connect(m_tab_widget, SIGNAL(currentCanvasChanged(Canvas*)),
-            m_search_widget, SLOT(changeCanvas(Canvas*)));
+    m_search_widget = new SearchWidget(canvasview, this);
+    connect(m_tab_widget, SIGNAL(currentCanvasViewChanged(CanvasView*)),
+            m_search_widget, SLOT(changeCanvasView(CanvasView*)));
     connect(m_action_show_search_widget,  SIGNAL(triggered(bool)),
             m_search_widget, SLOT(setVisible(bool)));
     connect(m_search_widget, SIGNAL(visibilityChanged(bool)),

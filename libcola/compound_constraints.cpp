@@ -1477,7 +1477,9 @@ CompoundConstraint::CompoundConstraint(vpsc::Dim primaryDim,
     _secondaryDim((vpsc::Dim) ((primaryDim + 1) % 2)),
     _priority(priority),
     _combineSubConstraints(false),
-    _currSubConstraintIndex(0)
+    _currSubConstraintIndex(0),
+    umlEdgeLabelStartIndex(0),
+    shapeEndIndex(0)
 {
 }
 
@@ -1570,6 +1572,25 @@ bool CompoundConstraint::shouldCombineSubConstraints(void) const
     return _combineSubConstraints;
 }
 
+void CompoundConstraint::setUmlEdgeLabelStartIndex(int index)
+{
+    umlEdgeLabelStartIndex = index;
+}
+
+void CompoundConstraint::setShapeEndIndex(int index)
+{
+    shapeEndIndex = index;
+}
+
+void CompoundConstraint::setRectangles(vpsc::Rectangles rectangles)
+{
+    rs = rectangles;
+}
+
+void CompoundConstraint::setUmlMidLabelDummyNodeMap(std::map<int, int> map)
+{
+    umlMidLabelDummyNodeMap = map;
+}
 
 UnsatisfiableConstraintInfo::UnsatisfiableConstraintInfo(
         const vpsc::Constraint *c) 

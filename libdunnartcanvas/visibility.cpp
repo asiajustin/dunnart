@@ -23,7 +23,6 @@
  * Author(s): Michael Wybrow  <http://michael.wybrow.info/>
 */
 
-
 #include <cstdlib>
 #include <cassert>
 #include <map>
@@ -48,7 +47,9 @@ namespace dunnart {
 
 
 using namespace Avoid;
+using namespace vpsc;
 
+int afterPostProcessing = 3;
 
 //===========================================================================
 //  Visibility Graph code:
@@ -448,8 +449,8 @@ void reroute_connectors(Canvas *canvas, const bool force,
         const bool postProcessing)
 {
     Avoid::Router *router = canvas->router();
-    //qDebug("%d reroute_connectors(%d, %d)\n", (int) time(NULL),
-    //       (int) force, (int) postProcessing);
+    qDebug("%d reroute_connectors(%d, %d)\n", (int) time(NULL),
+           (int) force, (int) postProcessing);
     if (router->SimpleRouting)
     {
         router->processTransaction();
@@ -460,6 +461,7 @@ void reroute_connectors(Canvas *canvas, const bool force,
             if (conn)
             {
                 conn->forceReroute();
+                conn->updateIdealPosition();
             }
         }
         return;
@@ -546,6 +548,332 @@ void reroute_connectors(Canvas *canvas, const bool force,
     {
         colourInterferingConnectors(canvas);
     }
+
+    QList<CanvasItem *> canvas_items = canvas->items();
+    for (int i = 0; i < canvas_items.size(); ++i)
+    {
+        Connector *conn = dynamic_cast<Connector *> (canvas_items.at(i));
+        if (conn)
+        {
+            conn->updateIdealPosition();
+        }
+    }
+
+#if 1
+    if (postProcessing)
+    {
+        afterPostProcessing = 0;
+    }
+    else
+    {
+        ++afterPostProcessing;
+    }
+
+    /*******************/
+    if (afterPostProcessing <= 2 && afterPostProcessing >= 1)
+    {
+        vpsc::Rectangles allShapes, labelShapes, rs, dummyNodesOnMidConnectors;
+        std::vector<unsigned> rsIDList;
+        std::vector<ShapeObj *> normalShapes;
+        std::vector<Connector *> connectors;
+        std::vector<cola::Edge> edgesVector;
+        QMap<int, int> idIndexLookup, dummyNodeEndShapeInternalIDMap;
+        std::map<int, int> midLabelDummyNodeMap;
+        std::vector<unsigned> dummyNodeIndices;
+        std::vector<double> idealEdgeLengths;
+
+        QList<CanvasItem *> canvasObjects = canvas->items();
+        for (int i = 0; i < canvasObjects.size(); ++i)
+        {
+            if (ShapeObj *shape = isShapeForLayout(canvasObjects.at(i)))
+            {
+                normalShapes.push_back(shape);
+
+                // copied and modified from shapeToNode() in graphdata.cpp
+                double g=0;
+                double buffer = 0; //shape->canvas()->optShapeNonoverlapPadding();
+                QRectF rect = shape->shapeRect(buffer + g); // Make a rect with the size of the shape + some possible paddings
+
+                bool allowOverlap = false;
+                /*
+                if(rect.width() < 1.0) {
+                    qWarning("dummy node, size<1 found - allowing overlap");
+                    allowOverlap=true;
+                }*/
+                double labelOverlapPreventionPadding = 5;
+                vpsc::Rectangle *r = new vpsc::Rectangle(rect.left() - labelOverlapPreventionPadding, rect.right() + labelOverlapPreventionPadding,
+                        rect.top() - labelOverlapPreventionPadding, rect.bottom() + labelOverlapPreventionPadding, allowOverlap);
+                qWarning("Node id=%d, (x,y)=(%f,%f), (w,h)=%f,%f",
+                        shape->internalId(),r->getCentreX(), r->getCentreY(),
+                        r->width(), r->height());
+
+                rs.push_back(r);
+                idIndexLookup.insert(shape->internalId(), rs.size() - 1);
+
+            }
+            else if (Connector *conn = dynamic_cast<Connector *> (canvasObjects.at(i)))
+            {
+                if (!conn->get_connpts().second.shape) return;
+
+                connectors.push_back(conn);
+
+                double srcShapeWidth = (conn->getSrcShape() == NULL) ? 0 : conn->getSrcShape()->size().width();
+                double srcShapeHeight = (conn->getSrcShape() == NULL) ? 0 : conn->getSrcShape()->size().height();
+                double dstShapeWidth = (conn->getDstShape() == NULL) ? 0 : conn->getDstShape()->size().width();
+                double dstShapeHeight = (conn->getDstShape() == NULL) ? 0 : conn->getDstShape()->size().height();
+
+                double srcShapeMaxHiddenLength = sqrt(pow(srcShapeWidth, 2) + pow(srcShapeHeight, 2)) / 2;
+                double dstShapeMaxHiddenLength = sqrt(pow(dstShapeWidth, 2) + pow(dstShapeHeight, 2)) / 2;
+                double totalLength = conn->painterPath().length();
+                double minVisibleLength = totalLength - srcShapeMaxHiddenLength - dstShapeMaxHiddenLength;
+
+                double midLabelsAtConnectorLength = srcShapeMaxHiddenLength + 0.5 * minVisibleLength;
+                double midLabelsPercentAtLength = conn->painterPath().percentAtLength(midLabelsAtConnectorLength);
+                QPointF midLabelsAtConnectorPoint = conn->painterPath().pointAtPercent(midLabelsPercentAtLength);
+
+                QRectF rect;
+                rect.setSize(QSizeF(5, 5));
+                rect.moveCenter(conn->mapToScene(midLabelsAtConnectorPoint));
+
+                dummyNodeEndShapeInternalIDMap.insertMulti(dummyNodesOnMidConnectors.size(), conn->getSrcShape()->internalId());
+                dummyNodeEndShapeInternalIDMap.insertMulti(dummyNodesOnMidConnectors.size(), conn->getDstShape()->internalId());
+                dummyNodesOnMidConnectors.push_back(new vpsc::Rectangle(rect.left(), rect.right(),
+                                                                        rect.top(), rect.bottom(), false));
+            }
+
+        }
+
+        // Made a similar method as items() in cavas.cpp called connectorLabelItems();
+        QList<ConnectorLabel *> connectorLabel = canvas->connectorLabelItems(false);
+        for(int i = 0; i < connectorLabel.size(); ++i)
+        {
+            ConnectorLabel *cl = connectorLabel.at(i);
+            QRectF rect;
+            rect.setSize(cl->size());
+
+            QList<QGraphicsItem *> intersectedSceneItemsList;
+            QList<QGraphicsItem *> tempList = canvas->collidingItems(cl, Qt::IntersectsItemBoundingRect);
+
+            for (int i = 0; i < tempList.size(); ++i)
+            {
+                if (dynamic_cast<ConnectorLabel *> (tempList[i]) || dynamic_cast<ShapeObj *> (tempList[i]))
+                {
+                    intersectedSceneItemsList.push_back(tempList[i]);
+                }
+            }
+
+            if (intersectedSceneItemsList.size() > 0)
+            {
+                rect.moveCenter(cl->scenePos());
+            }
+            else
+            {
+                rect.moveCenter(cl->parentItem()->mapToScene(cl->idealPos()));
+            }
+            rect = expandRect(rect, 3);
+            labelShapes.push_back(new vpsc::Rectangle(rect.left(), rect.right(),
+                    rect.top(), rect.bottom(), false));
+        }
+
+        for (int i = 0; i < rs.size(); i++)
+        {
+            allShapes.push_back(rs[i]);
+            rsIDList.push_back(i);
+        }
+
+        int normalShapeIndexEndTo = allShapes.size() - 1;
+
+        for (int i = 0; i < dummyNodesOnMidConnectors.size(); i++)
+        {
+            allShapes.push_back(dummyNodesOnMidConnectors[i]);
+            rsIDList.push_back(rsIDList.size());
+
+            int newIndex = allShapes.size() - 1;
+            dummyNodeIndices.push_back(newIndex);
+
+            QList<int> connectorEndShapesInternalIDList = dummyNodeEndShapeInternalIDMap.values(i);
+            QList<int> connectorEndShapesIndexList;
+            for (int j = 0; j < connectorEndShapesInternalIDList.size(); ++j)
+            {
+                connectorEndShapesIndexList.push_back(idIndexLookup.value(connectorEndShapesInternalIDList[j]));
+            }
+    /*
+            if (connectors[i]->getDstShape())
+            {
+                edgesVector.push_back(std::make_pair(idIndexLookup.value(connectors[i]->getSrcShape()->internalId()), allShapes.size()));
+                edgesVector.push_back(std::make_pair(idIndexLookup.value(connectors[i]->getDstShape()->internalId()), allShapes.size()));
+                idealEdgeLengths.push_back(euclideanDist(Point(connectors[i]->getSrcShape()->x(), connectors[i]->getSrcShape()->y()), dummyNodesOnMidConnectors[i]->getCentreX()));
+                idealEdgeLengths.push_back(40);
+            }*/
+            for (int j = 0; j < rs.size(); j++)
+            {
+                double rsxDummyNodeDistance = euclideanDist(Point(dummyNodesOnMidConnectors[i]->getCentreX(), dummyNodesOnMidConnectors[i]->getCentreY()),
+                                                            Point(rs[j]->getCentreX(), rs[j]->getCentreY()));
+                if (rsxDummyNodeDistance < 60 + qMax(rs[j]->width(), rs[j]->height()) || connectorEndShapesIndexList.contains(j))
+                {
+                    edgesVector.push_back(std::make_pair(j, newIndex));
+                    idealEdgeLengths.push_back(rsxDummyNodeDistance);
+                }
+            }
+        }
+
+        int labelIndexStartFrom = allShapes.size();
+
+        for (int i = 0; i < labelShapes.size(); i++)
+        {
+            allShapes.push_back(labelShapes[i]);
+            idIndexLookup.insert(connectorLabel[i]->internalId(), allShapes.size() - 1);
+        }
+        for (int i = 0; i < dummyNodesOnMidConnectors.size(); i++)
+        {
+            if (!connectors[i]->getMiddleLabelRectangle1()->label().isEmpty())
+            {
+                edgesVector.push_back(std::make_pair(idIndexLookup.value(connectors[i]->getMiddleLabelRectangle1()->internalId()), dummyNodeIndices[i]));
+                idealEdgeLengths.push_back(connectors[i]->getIdOffsetMap().value(connectors[i]->getMiddleLabelRectangle1()->internalId()));
+                midLabelDummyNodeMap[idIndexLookup.value(connectors[i]->getMiddleLabelRectangle1()->internalId())] = dummyNodeIndices[i];
+            }
+            if (!connectors[i]->getMiddleLabelRectangle2()->label().isEmpty())
+            {
+                edgesVector.push_back(std::make_pair(idIndexLookup.value(connectors[i]->getMiddleLabelRectangle2()->internalId()), dummyNodeIndices[i]));
+                idealEdgeLengths.push_back(connectors[i]->getIdOffsetMap().value(connectors[i]->getMiddleLabelRectangle2()->internalId()));
+                midLabelDummyNodeMap[idIndexLookup.value(connectors[i]->getMiddleLabelRectangle2()->internalId())] = dummyNodeIndices[i];
+            }
+        }
+        if (rsIDList.size() >= 2 && labelShapes.size() > 0)
+        {
+    #if 1
+            cola::CompoundConstraints cc;
+            cola::FixedRelativeConstraint *frc = new cola::FixedRelativeConstraint(allShapes, rsIDList, true);
+            cc.push_back(frc);
+            cola::ConstrainedFDLayout cfdl(allShapes, edgesVector, 1, false, idealEdgeLengths);
+            cfdl.run();
+            cfdl.setConstraints(cc);
+            cfdl.run();
+            cfdl.outputInstanceToSVG("pre");
+
+            cola::ConstrainedFDLayout cfdl2(allShapes, edgesVector, 1, true, idealEdgeLengths);
+            cfdl2.setUmlEdgeLabelStartIndex(labelIndexStartFrom);
+            cfdl2.setShapeEndIndex(normalShapeIndexEndTo);
+            cfdl2.setUmlMidLabelDummyNodeMap(midLabelDummyNodeMap);
+            cfdl2.setConstraints(cc);
+            cfdl2.outputInstanceToSVG("before");
+            cfdl2.makeFeasible();
+            cfdl2.outputInstanceToSVG("middle");
+            cfdl2.run();
+            cfdl2.outputInstanceToSVG("after");
+
+            for (int i = 0; i < connectorLabel.size(); i++)
+            {
+                connectorLabel[i]->setPos(connectorLabel[i]->parentItem()->mapFromScene(QPointF(labelShapes[i]->getCentreX(), labelShapes[i]->getCentreY())));
+            }
+
+            cfdl2.freeAssociatedObjects();
+            qDebug() << ":LAYOUT";
+    #else
+
+            Variables vs(allShapes.size());
+            unsigned i=0;
+            for(Variables::iterator v=vs.begin();v!=vs.end();++v,++i) {
+                *v=new Variable(i,0,1);
+            }
+            Constraints cs;
+            generateXConstraints(allShapes,vs,cs,false);
+            //generateYConstraints(allShapes,vs,cs);
+            try {
+                vpsc::IncSolver vpsc(vs,cs);
+                vpsc.solve();
+            } catch (char *str) {
+                std::cerr<<str<<std::endl;
+                for(vpsc::Rectangles::iterator r=allShapes.begin();r!=allShapes.end();++r) {
+                    std::cerr << **r <<std::endl;
+                }
+            }
+            vpsc::Rectangles::iterator r=allShapes.begin();
+            for(vpsc::Variables::iterator v=vs.begin();v!=vs.end();++v,++r) {
+                assert((*v)->finalPosition==(*v)->finalPosition);
+                (*r)->moveCentreX((*v)->finalPosition);
+                //(*r)->moveCentreY((*v)->finalPosition);
+            }
+            assert(r==allShapes.end());
+            for_each(cs.begin(),cs.end(),delete_object());
+            for_each(vs.begin(),vs.end(),delete_object());
+
+            Variables vs1(allShapes.size());
+            unsigned j=0;
+            for(Variables::iterator v=vs1.begin();v!=vs1.end();++v,++j) {
+                *v=new Variable(j,0,1);
+            }
+            Constraints cs1;
+            //generateXConstraints(allShapes,vs,cs1,false);
+            generateYConstraints(allShapes,vs1,cs1);
+            try {
+                vpsc::IncSolver vpsc(vs1,cs1);
+                vpsc.solve();
+            } catch (char *str) {
+                std::cerr<<str<<std::endl;
+                for(vpsc::Rectangles::iterator r=allShapes.begin();r!=allShapes.end();++r) {
+                    std::cerr << **r <<std::endl;
+                }
+            }
+            vpsc::Rectangles::iterator r1=allShapes.begin();
+            for(vpsc::Variables::iterator v=vs1.begin();v!=vs1.end();++v,++r1) {
+                assert((*v)->finalPosition==(*v)->finalPosition);
+                //(*r)->moveCentreX((*v)->finalPosition);
+                (*r1)->moveCentreY((*v)->finalPosition);
+            }
+            assert(r1==allShapes.end());
+            for_each(cs1.begin(),cs1.end(),delete_object());
+            for_each(vs1.begin(),vs1.end(),delete_object());
+
+            if (labelShapes.size() > 0)
+            {
+                for (int i = 0; i < connectorLabel.size(); i++)
+                {
+                    connectorLabel[i]->setPos(connectorLabel[i]->parentItem()->mapFromScene(QPointF(labelShapes[i]->getCentreX(), labelShapes[i]->getCentreY())));
+                }
+            }
+    #endif
+            /*******************
+
+            vpsc::removeoverlaps(allShapes);
+
+            for (int i = 0; i < normalShapes.size(); i++)
+            {
+                normalShapes[i]->setCentrePos(QPoint(rs[i]->getCentreX(), rs[i]->getCentreY()));
+            }
+
+            if (labelShapes.size() > 0)
+            {
+                for (int i = 0; i < connectorLabel.size(); i++)
+                {
+                    connectorLabel[i]->setPos(connectorLabel[i]->parentItem()->mapFromScene(QPointF(labelShapes[i]->getCentreX(), labelShapes[i]->getCentreY())));
+                }
+            }
+
+            ******************/
+        }
+        for (int i = 0; i < allShapes.size(); ++i)
+        {
+            delete allShapes[i];
+            allShapes[i] = NULL;
+        }
+        for (int i = 0; i < rs.size(); ++i)
+        {
+            delete rs[i];
+            rs[i] = NULL;
+        }
+        for (int i = 0; i < dummyNodesOnMidConnectors.size(); ++i)
+        {
+            delete dummyNodesOnMidConnectors[i];
+            dummyNodesOnMidConnectors[i] = NULL;
+        }
+        for (int i = 0; i < labelShapes.size(); ++i)
+        {
+            delete labelShapes[i];
+            labelShapes[i] = NULL;
+        }
+    }
+#endif
 }
 
 

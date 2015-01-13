@@ -20,6 +20,11 @@ void NoteShape::setupForShapePickerDropOnCanvas()
     m_label = "Note";
 }
 
+uint NoteShape::levelsOfDetail(void) const
+{
+    return 2;
+}
+
 QPainterPath NoteShape::buildPainterPath(void)
 {
     std::cout << "UML Note: build painter path" << std::endl;
@@ -47,26 +52,27 @@ void NoteShape::setLabel(const QString& label)
 {
     m_label = label.simplified();
 
+    if (m_label.isEmpty())
+    {
+        setSize(QSizeF(70, 50));
+    }
     update();
-    canvas()->layout()->setRestartFromDunnart();
+    canvas()->repositionAndShowSelectionResizeHandles(true);
+    canvas()->fully_restart_graph_layout();
 }
 
 void NoteShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     std::cout << "UML Note: Paint" << std::endl;
 
+    QString m_label(this->m_label);
+
     if (!m_label.isEmpty())
     {
-        if (width() < 70)
+        if (currentDetailLevel() == 2)
         {
-            setSize(QSizeF(qreal(70), qreal(height())));
+            m_label = "......";
         }
-
-        if (height() < 50)
-        {
-            setSize(QSizeF(qreal(width()), qreal(50)));
-        }
-
         QFontMetrics qfm(canvas()->canvasFont());
         int maxWordLength = 0;
         QStringList wordList = m_label.split(" ");
@@ -138,7 +144,7 @@ void NoteShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
     // Call the parent paint method, to draw the node and label
     ShapeObj::paint(painter, option, widget);
 
-    painter->setPen(Qt::black);
+    painter->setPen(strokeColour());
     if (canvas())
     {
         painter->setFont(canvas()->canvasFont());

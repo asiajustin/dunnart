@@ -273,6 +273,8 @@ struct ShapePosInfo : PosInfo {
             //qDebug("Moving shape: (%g,%g)  %g\n", centreX, centreY,
             //        diff.manhattanLength());
 
+            shapePtr->CanvasItem::setPos(shapeRect.center());
+            /*
             // Do shape movement as an animation.
             ShapePositionAnimation *animation =
                     new ShapePositionAnimation(shapePtr);
@@ -280,6 +282,7 @@ struct ShapePosInfo : PosInfo {
             animation->setStartValue(shapePtr->centrePos());
             animation->setEndValue(shapeRect.center());
             canvas->m_animation_group->addAnimation(animation);
+            */
         }
     }
     void fixGraphLayoutPosition(GraphData*, cola::Locks&, cola::Resizes&);
@@ -1029,13 +1032,20 @@ int GraphLayout::processReturnPositions()
 
     // Finish every animation step off with ObjectsRepositionedAnimation
     // which can be used to redraw connectors.  Then start the animation.
-    ObjectsRepositionedAnimation *animation =
+    /*ObjectsRepositionedAnimation *animation =
             new ObjectsRepositionedAnimation(m_canvas);
     m_canvas->m_animation_group->addAnimation(animation);
     m_canvas->m_animation_group->start();
 
-    ConstraintDebug("********END***********\n\n");
-    //redraw_connectors(m_canvas);
+    ConstraintDebug("********END***********\n\n");*/
+
+    m_canvas->updateConnectorsForLayout();
+    qDebug("33333");
+
+    // Update selection cue after nodes have moved.
+    bool computePositions = true;
+    m_canvas->repositionAndShowSelectionResizeHandles(computePositions);
+
     return movesCount;
 }
 

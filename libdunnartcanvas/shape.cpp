@@ -219,7 +219,111 @@ void ShapeObj::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 void ShapeObj::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     canvas()->processSelectionDropEvent(event);
+    shapeConnectorMap.clear();
+
+    // Focal node
+    if (!hasBeenDragged())
+    {
+        QList<CanvasItem *> canvasItems = canvas()->items();
+        QColor strokeColor(0, 0, 0, 255);
+        QColor shapeFillColor(240, 240, 210, 255);
+
+        for (int i = 0; i < canvasItems.size(); ++i)
+        {
+            if (ShapeObj *shape = dynamic_cast<ShapeObj*>(canvasItems[i]))
+            {
+                QColor shapeStrokeFadeColor(shape->strokeColour());
+                shapeStrokeFadeColor.setAlpha(50);
+                shape->setStrokeColour(shapeStrokeFadeColor);
+
+                QColor shapeFillFadeColor(shape->fillColour());
+                shapeFillFadeColor.setAlpha(50);
+                shape->setFillColour(shapeFillFadeColor);
+            }
+            else if (Connector *conn = dynamic_cast<Connector*>(canvasItems[i]))
+            {
+                QColor connectorFadeColor(conn->colour());
+                connectorFadeColor.setAlpha(50);
+                conn->setColour(connectorFadeColor);
+
+                shapeConnectorMap.insertMulti(conn->getSrcShape()->internalId(), conn->internalId());
+                shapeConnectorMap.insertMulti(conn->getDstShape()->internalId(), conn->internalId());
+            }
+        }
+
+        this->setStrokeColour(strokeColor);
+        this->setFillColour(shapeFillColor);
+
+        for (int i = 0; i < canvasItems.size(); ++i)
+        {
+            if (Connector *conn = dynamic_cast<Connector*>(canvasItems[i]))
+            {
+                ShapeObj *srcShape = conn->getSrcShape();
+                ShapeObj *dstShape = conn->getDstShape();
+                if (srcShape->internalId() == this->internalId())
+                {
+                    conn->setColour(strokeColor);
+                    dstShape->setStrokeColour(strokeColor);
+                    dstShape->setFillColour(shapeFillColor);
+                    // Inheritance relationship
+                    if (conn->getDirected() == Connector::either && conn->arrowHeadHeadType() == Connector::triangle_outline)
+                    {
+                        exploreInheritanceAndColorNodes(dstShape->internalId(), true);
+                    }
+                }
+                else if (dstShape->internalId() == this->internalId())
+                {
+                    conn->setColour(strokeColor);
+                    srcShape->setStrokeColour(strokeColor);
+                    srcShape->setFillColour(shapeFillColor);
+                    // Inheritance relationship
+                    if (conn->getDirected() == Connector::either && conn->arrowHeadHeadType() == Connector::triangle_outline)
+                    {
+                        exploreInheritanceAndColorNodes(srcShape->internalId(), false);
+                    }
+
+                }
+            }
+        }
+
+        canvas()->setFocalMode(true);
+    }
     CanvasItem::mouseReleaseEvent(event);
+}
+
+void ShapeObj::exploreInheritanceAndColorNodes(uint shapeId, bool isForward)
+{
+    QColor strokeColor(0, 0, 0, 255);
+    QColor shapeFillColor(240, 240, 210, 255);
+
+    QList<unsigned> connectorInternalIdList = shapeConnectorMap.values(shapeId);
+
+    for (int i = 0; i < connectorInternalIdList.size(); ++i)
+    {
+        if (Connector *conn = dynamic_cast<Connector*>(canvas()->getItemByInternalId(connectorInternalIdList[i])))
+        {
+            if (conn->getDirected() == Connector::either && conn->arrowHeadHeadType() == Connector::triangle_outline)
+            {
+
+                ShapeObj *srcShape = conn->getSrcShape();
+                ShapeObj *dstShape = conn->getDstShape();
+                if (isForward && srcShape->internalId() == shapeId)
+                {
+                    conn->setColour(strokeColor);
+                    dstShape->setStrokeColour(strokeColor);
+                    dstShape->setFillColour(shapeFillColor);
+                    exploreInheritanceAndColorNodes(dstShape->internalId(), true);
+                }
+                else if (!isForward && dstShape->internalId() == shapeId)
+                {
+                    conn->setColour(strokeColor);
+                    srcShape->setStrokeColour(strokeColor);
+                    srcShape->setFillColour(shapeFillColor);
+                    exploreInheritanceAndColorNodes(srcShape->internalId(), false);
+                }
+            }
+        }
+    }
 }
 
 void ShapeObj::wheelEvent(QGraphicsSceneWheelEvent *event)
@@ -766,6 +870,23 @@ void ShapeObj::setPos(const QPointF& pos)
     abort();
 }
 
+void ShapeObj::setIdealPos(QPointF pos)
+{
+    ideal_pos = pos;
+    setCentrePos(pos);
+}
+
+QPointF ShapeObj::idealPos()
+{
+    if (ideal_pos.isNull())
+    {
+        return centrePos();
+    }
+    else
+    {
+        return ideal_pos;
+    }
+}
 
 void ShapeObj::setCentrePos(const QPointF & pos)
 {
@@ -1161,6 +1282,14 @@ uint ShapeObj::currentDetailLevel(void) const
     return m_detail_level;
 }
 
+void ShapeObj::setDetailLevel(uint level)
+{
+    if (level > 0 && level <= levelsOfDetail())
+    {
+        m_detail_level = level;
+    }
+}
+
 // Default implementation.  No extra detail.
 uint ShapeObj::levelsOfDetail(void) const
 {
@@ -1238,7 +1367,7 @@ QRectF ShapeObj::labelBoundingRect(void) const
 
 void ShapeObj::paintLabel(QPainter *painter)
 {
-    painter->setPen(Qt::black);
+    painter->setPen(m_stroke_colour);
     if (canvas())
     {
         painter->setFont(canvas()->canvasFont());

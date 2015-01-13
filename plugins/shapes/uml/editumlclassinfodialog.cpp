@@ -71,9 +71,9 @@ void EditUmlClassInfoDialog::selection_changed()
             connect( classAttributesArea, SIGNAL( textChanged() ), classShapeItem, SLOT( classAttributesAreaChanged() ));
             connect( classNameArea, SIGNAL( textChanged() ), classShapeItem, SLOT( classNameAreaChanged() ));
 
-            classShapeItem->classNameAreaChanged();
-            classShapeItem->classAttributesAreaChanged();
-            classShapeItem->classMethodsAreaChanged();
+            classShapeItem->classNameAreaChanged(false);
+            classShapeItem->classAttributesAreaChanged(false);
+            classShapeItem->classMethodsAreaChanged(false);
 
             return;
         }
@@ -88,7 +88,6 @@ void EditUmlClassInfoDialog::selection_changed()
         classAttributesArea->setEnabled(false);
         classNameArea->setEnabled(false);
     }
-
 }
 
 

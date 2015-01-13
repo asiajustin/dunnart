@@ -199,6 +199,7 @@ void CanvasItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
     if (event->button() == Qt::LeftButton)
     {
+        hasDragged = false;
         QApplication::setOverrideCursor(Qt::ClosedHandCursor);
         // Drop through to parent handler.
     }
@@ -248,6 +249,9 @@ void CanvasItem::dragReleaseEvent(QGraphicsSceneMouseEvent *event)
     Q_UNUSED (event)
 
     canvas()->setDraggedItem(NULL);
+
+    beingDragged = false;
+    hasDragged = true;
 }
 
 
@@ -257,6 +261,8 @@ void CanvasItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
     QPointF diff = event->pos() - event->lastPos();
 
     canvas()->setDraggedItem(this);
+
+    beingDragged = true;
 
     foreach (CanvasItem *item, canvas()->selectedItems())
     {
@@ -726,6 +732,16 @@ void CanvasItem::setSize(const QSizeF& newSize)
 void CanvasItem::setSize(const double w, const double h)
 {
     CanvasItem::setSize(QSizeF(w, h));
+}
+
+bool CanvasItem::isBeingDragged(void)
+{
+    return beingDragged;
+}
+
+bool CanvasItem::hasBeenDragged(void)
+{
+    return hasDragged;
 }
 
 double CanvasItem::width(void) const

@@ -503,29 +503,94 @@ NonOverlapConstraints::getCurrSubConstraintAlternatives(vpsc::Variables vs[])
     ySepB += 10e-10;
     ySepT += 10e-10;
 
-    // Compute the cost to move in each direction based on the 
+    bool shapeAboveDummy = false;
+    bool shapeBelowDummy = false;
+    bool shapeOnTheLeftOfDummy = false;
+    bool shapeOnTheRightOfDummy = false;
+
+    int dummyIndex;
+    if (umlEdgeLabelStartIndex > 2 && shapeEndIndex < umlEdgeLabelStartIndex
+            && varIndexL2 >= umlEdgeLabelStartIndex && varIndexL1 <= shapeEndIndex && (dummyIndex = umlMidLabelDummyNodeMap[varIndexL2]) > 1)
+    {
+        std::cout << "Hurrah~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+        // label = varIndexL2;
+        // shape = varIndexL1;
+
+        double dummyX = rs[dummyIndex]->getCentreX();
+        double dummyY = rs[dummyIndex]->getCentreY();
+        double shapeX = rs[varIndexL1]->getCentreX();
+        double shapeY = rs[varIndexL1]->getCentreY();
+
+        std::cout << "Shape Position: " << shapeX << ", " << shapeY << std::endl;
+        std::cout << "dummy Position: " << dummyX << ", " << dummyY << std::endl;
+
+        if (shapeX < dummyX)
+        {
+            shapeOnTheLeftOfDummy = true;
+            std::cout << "5. shape " << varIndexL1 << " on the left of dummy " << dummyIndex <<std::endl;
+        }
+        else if (dummyX < shapeX)
+        {
+            shapeOnTheRightOfDummy = true;
+            std::cout << "6. shape " << varIndexL1 << " on the right of dummy " << dummyIndex <<std::endl;
+        }
+
+        if (shapeY < dummyY)
+        {
+            shapeAboveDummy = true;
+            std::cout << "7. shape " << varIndexL1 << " on the above of dummy " << dummyIndex <<std::endl;
+        }
+        else if (dummyY < shapeY)
+        {
+            shapeBelowDummy = true;
+            std::cout << "8. shape " << varIndexL1 << " on the below of dummy " << dummyIndex <<std::endl;
+        }
+    }
+
+    bool bypass = !shapeAboveDummy && !shapeBelowDummy && !shapeOnTheLeftOfDummy && !shapeOnTheRightOfDummy;
+
+    // Compute the cost to move in each direction based on the
     // desired positions for the two objects.
-    double costR = xSepCostR - (desiredX2 - desiredX1);
-    double costL = xSepCostL - (desiredX1 - desiredX2);
-    
-    double costT = ySepCostT - (desiredY2 - desiredY1);
-    double costB = ySepCostB - (desiredY1 - desiredY2);
 
-    vpsc::Constraint constraintL(vs[XDIM][varIndexR2], 
-            vs[XDIM][varIndexL1], xSepL);
-    alternatives.push_back(SubConstraint(XDIM, constraintL, costL));
+    if (shapeOnTheRightOfDummy || bypass)
+    {
+        double costL = xSepCostL - (desiredX1 - desiredX2);
+        vpsc::Constraint constraintL(vs[XDIM][varIndexR2],
+                vs[XDIM][varIndexL1], xSepL);
+        alternatives.push_back(SubConstraint(XDIM, constraintL, costL));
+    }
 
-    vpsc::Constraint constraintR(vs[XDIM][varIndexR1], 
-            vs[XDIM][varIndexL2], xSepR);
-    alternatives.push_back(SubConstraint(XDIM, constraintR, costR));
+    if (shapeOnTheLeftOfDummy || bypass)
+    {
+        double costR = xSepCostR - (desiredX2 - desiredX1);
+        vpsc::Constraint constraintR(vs[XDIM][varIndexR1],
+                vs[XDIM][varIndexL2], xSepR);
+        alternatives.push_back(SubConstraint(XDIM, constraintR, costR));
+    }
 
-    vpsc::Constraint constraintB(vs[YDIM][varIndexR2], 
-            vs[YDIM][varIndexL1], ySepB);
-    alternatives.push_back(SubConstraint(YDIM, constraintB, costB));
+    if (shapeBelowDummy || bypass)
+    {
+        double costB = ySepCostB - (desiredY1 - desiredY2);
+        /*if (shapeOnTheRightOfDummy || shapeOnTheLeftOfDummy)
+        {
+            costB += 100;
+        }*/
+        vpsc::Constraint constraintB(vs[YDIM][varIndexR2],
+                vs[YDIM][varIndexL1], ySepB);
+        alternatives.push_back(SubConstraint(YDIM, constraintB, costB));
+    }
 
-    vpsc::Constraint constraintT(vs[YDIM][varIndexR1], 
-            vs[YDIM][varIndexL2], ySepT);
-    alternatives.push_back(SubConstraint(YDIM, constraintT, costT));
+    if (shapeAboveDummy || bypass)
+    {
+        double costT = ySepCostT - (desiredY2 - desiredY1);
+        /*if (shapeOnTheRightOfDummy || shapeOnTheLeftOfDummy)
+        {
+            costT += 100;
+        }*/
+        vpsc::Constraint constraintT(vs[YDIM][varIndexR1],
+                vs[YDIM][varIndexL2], ySepT);
+        alternatives.push_back(SubConstraint(YDIM, constraintT, costT));
+    }
     
     //fprintf(stderr, "===== NONOVERLAP ALTERNATIVES -====== \n");
 

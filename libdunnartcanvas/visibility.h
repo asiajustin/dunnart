@@ -26,7 +26,6 @@
 #ifndef VISIBILITY_H
 #define VISIBILITY_H
 
-
 namespace dunnart {
 
 
@@ -41,8 +40,7 @@ extern int noOfConnectorCrossings(Connector *conn = NULL);
 extern void nudgeConnectors(Canvas *canvas, const double nudgeDist,
         const bool displayUpdate = false);
 // ADS: color intersect/shared conns
-extern void colourInterferingConnectors(Canvas *canvas); 
-
+extern void colourInterferingConnectors(Canvas *canvas);
 
 }
 #endif /* !VISIBILITY_H */

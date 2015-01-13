@@ -234,6 +234,11 @@ public:
     virtual void printCreationCode(FILE *fp) const;
     bool shouldCombineSubConstraints(void) const;
 
+    void setUmlEdgeLabelStartIndex(int);
+    void setShapeEndIndex(int);
+    void setRectangles(vpsc::Rectangles);
+    void setUmlMidLabelDummyNodeMap(std::map<int, int>);
+
 protected:
     void assertValidVariableIndex(const vpsc::Variables& vars, 
             const unsigned index);
@@ -252,6 +257,11 @@ protected:
     SubConstraintInfoList _subConstraintInfo;
     // The index of the current subConstraint being made feasible.
     size_t _currSubConstraintIndex;
+
+    int umlEdgeLabelStartIndex;
+    int shapeEndIndex;
+    vpsc::Rectangles rs;
+    std::map<int, int> umlMidLabelDummyNodeMap;
 };
 //! @brief A vector of pointers to CompoundConstraint objects.
 typedef std::vector<CompoundConstraint *> CompoundConstraints;

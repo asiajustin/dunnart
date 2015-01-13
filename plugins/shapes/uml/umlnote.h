@@ -30,6 +30,10 @@ class NoteShape: public RectangleShape {
          *  drags shapes from the shape picker.
          */
         virtual void setupForShapePickerDropOnCanvas(void);
+        /**
+         * Overrided, to specify how many levels of detail your shape has.
+         */
+        virtual uint levelsOfDetail(void) const;
 
     private:
         QString m_label;

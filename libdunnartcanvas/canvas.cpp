@@ -188,7 +188,8 @@ Canvas::Canvas()
       m_routing_event_posted(false),
       m_canvas_font(NULL),
       m_canvas_font_size(DEFAULT_CANVAS_FONT_SIZE),
-      m_animation_group(NULL)
+      m_animation_group(NULL),
+      m_focal_mode(false)
 {
     m_ideal_connector_length = 100;
     m_flow_separation_modifier = 0.5;
@@ -400,6 +401,19 @@ CanvasItem *Canvas::getItemByInternalId(uint internalId) const
 {
     assert(this != NULL);
     foreach (CanvasItem *item, items())
+    {
+        if (internalId == item->internalId())
+        {
+            return item;
+        }
+    }
+    return NULL;
+}
+
+ConnectorLabel *Canvas::getConnectorLabelByInternalId(uint internalId) const
+{
+    assert(this != NULL);
+    foreach (ConnectorLabel *item, connectorLabelItems(true))
     {
         if (internalId == item->internalId())
         {
@@ -861,9 +875,40 @@ void Canvas::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
         }
     }
 
+    if (m_focal_mode)
+    {
+        QList<CanvasItem *> canvasItems = items();
+        QColor strokeColor(0, 0, 0, 255);
+        QColor shapeFillColor(240, 240, 210, 255);
+
+        for (int i = 0; i < canvasItems.size(); ++i)
+        {
+            if (Connector *conn = dynamic_cast<Connector*>(canvasItems[i]))
+            {
+                conn->setColour(strokeColor);
+            }
+            else if (ShapeObj *shape = dynamic_cast<ShapeObj*>(canvasItems[i]))
+            {
+                shape->setFillColour(shapeFillColor);
+                shape->setStrokeColour(strokeColor);
+            }
+        }
+
+        m_focal_mode = false;
+    }
+
     QGraphicsScene::mouseReleaseEvent(event);
 }
 
+void Canvas::setFocalMode(bool focalMode)
+{
+    m_focal_mode = focalMode;
+}
+
+bool Canvas::isInFocalMode()
+{
+    return m_focal_mode;
+}
 
 void Canvas::customEvent(QEvent *event)
 {
@@ -1908,6 +1953,24 @@ QString Canvas::filename(void)
     return m_filename;
 }
 
+QList<ConnectorLabel *> Canvas::connectorLabelItems(bool includeEmptyLabels) const
+{
+    QList<ConnectorLabel *> connectorLabels;
+
+    foreach (QGraphicsItem *item, QGraphicsScene::items())
+    {
+        ConnectorLabel *connectorLabel = dynamic_cast<ConnectorLabel *> (item);
+        if (connectorLabel)
+        {
+            if (includeEmptyLabels || !includeEmptyLabels && !connectorLabel->label().isEmpty())
+            {
+                connectorLabels.push_back(connectorLabel);
+            }
+        }
+    }
+
+    return connectorLabels;
+}
 
 QList<CanvasItem *> Canvas::items(void) const
 {
@@ -2038,6 +2101,7 @@ void Canvas::processLayoutUpdateEvent(void)
 
     m_graphlayout->processReturnPositions();
     updateConnectorsForLayout();
+    qDebug("11111");
 
     //qDebug("processLayoutUpdateEvent %7d", ++layoutUpdates);
 }
@@ -2844,6 +2908,17 @@ void Canvas::recursiveReadSVG(const QDomNode& start, const QString& dunnartNS,
         if (curr.isElement())
         {
             const QDomElement element = curr.toElement();
+
+            QDomNamedNodeMap attribs = element.attributes();
+
+            for (int i = 0; i < attribs.count(); ++i)
+            {
+                QDomNode node = attribs.item(i);
+                if (node.nodeValue() == "connectorLabel")
+                {
+                    return;
+                }
+            }
 
             if (pass == PASS_SHAPES)
             {

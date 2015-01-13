@@ -210,6 +210,8 @@ class CanvasItem: public QGraphicsSvgItem
         virtual QPainterPath shape() const;
         void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
                                         QWidget *widget);
+        bool isBeingDragged(void);
+        bool hasBeenDragged(void);
         double width(void) const;
         double height(void) const;
         void setSize(const double w, const double h);
@@ -220,6 +222,7 @@ class CanvasItem: public QGraphicsSvgItem
         bool constraintConflict(void) const;
         virtual void loneSelectedChange(const bool value);
         QString svgCodeAsString(const QSize& size, const QRectF& viewBox);
+        void setCanvasItemFlag(CanvasItemFlag flag, bool enabled);
 
     protected:
         void setHoverMessage(const QString& message);
@@ -249,8 +252,6 @@ class CanvasItem: public QGraphicsSvgItem
         virtual void routerMove(void);
         virtual void routerResize(void);
 
-        void setCanvasItemFlag(CanvasItemFlag flag, bool enabled);
-
         QString m_string_id;
         uint m_internal_id;        
         bool m_is_collapsed;
@@ -271,6 +272,9 @@ class CanvasItem: public QGraphicsSvgItem
         QString m_hover_message;
         CanvasItemFlags m_flags;
         bool m_constraint_conflict;
+
+        bool beingDragged;
+        bool hasDragged;
 };
 
 typedef QList<CanvasItem *> CanvasItemList;

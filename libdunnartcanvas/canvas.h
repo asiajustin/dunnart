@@ -167,6 +167,7 @@ class Canvas : public QGraphicsScene
         void setFilename(QString filename);
         QString filename(void);
         QList<CanvasItem *> items(void) const;
+        QList<ConnectorLabel *> connectorLabelItems(bool includeEmptyLabels) const;
         QList<CanvasItem *> selectedItems(void) const;
         QList<QGraphicsSvgItem *> selectedGeneralItems(void) const;
         void setSelection(const QList<CanvasItem *>& newSelection);
@@ -195,6 +196,7 @@ class Canvas : public QGraphicsScene
 
         CanvasItem *getItemByID(QString ID) const;
         CanvasItem *getItemByInternalId(uint internalId) const;
+        ConnectorLabel *getConnectorLabelByInternalId(uint internalId) const;
         void processSelectionDropEvent(QGraphicsSceneMouseEvent *event);
         
         bool optAutomaticGraphLayout(void) const;
@@ -227,6 +229,9 @@ class Canvas : public QGraphicsScene
         uint assignInternalId(void);
         int editMode(void) const;
         void setEditMode(int mode);
+
+        void setFocalMode(bool focalMode);
+        bool isInFocalMode();
 
         void setLayoutSuspended(bool suspend);
         bool isLayoutSuspended(void) const;
@@ -430,6 +435,7 @@ class Canvas : public QGraphicsScene
         CanvasItem *m_lone_selected_item;
         QUndoStack *m_undo_stack;
         UndoMacro *m_current_undo_macro;
+        bool m_focal_mode;
 
         QRectF m_selection_shapes_bounding_rect;
         QVector<SelectionResizeHandle *> m_selection_resize_handles;

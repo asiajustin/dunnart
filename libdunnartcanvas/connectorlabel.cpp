@@ -72,7 +72,8 @@ ConnectorLabel::ConnectorLabel(QGraphicsItem *parent, QString id, unsigned int l
           m_size(QSizeF(30, 20)),
           m_constraint_conflict(false),
           m_fill_colour(QColor(0,0,0,0)),
-          m_stroke_colour(QColor(0,255,255,0))
+          m_stroke_colour(QColor(0,255,255,0)),
+          m_label("")
 {
     //Q_UNUSED (parent)
 
@@ -262,6 +263,23 @@ Canvas *ConnectorLabel::canvas(void) const
     return dynamic_cast<Canvas *> (scene());
 }
 
+void ConnectorLabel::setIdealPos(QPointF pos)
+{
+    ideal_pos = pos;
+    setPos(pos);
+}
+
+QPointF ConnectorLabel::idealPos()
+{
+    if (ideal_pos.isNull())
+    {
+        return pos();
+    }
+    else
+    {
+        return ideal_pos;
+    }
+}
 
 QRectF ConnectorLabel::boundingRect(void) const
 {
@@ -271,7 +289,7 @@ QRectF ConnectorLabel::boundingRect(void) const
     assert(!m_painter_path.boundingRect().isNull());
 
     // Return the boundingRect, with padding for drawing selection cue.
-    return expandRect(m_painter_path.boundingRect(), BOUNDINGRECTPADDING);
+    return expandRect(m_painter_path.boundingRect(), 0);
 }
 
 
@@ -289,7 +307,16 @@ QString ConnectorLabel::label(void) const
 void ConnectorLabel::setLabel(const QString& label)
 {
     m_label = label;
+    if (m_label.isEmpty())
+    {
+        setSize(QSizeF(30, 20));
+    }
     update();
+
+    if (isSelected())
+    {
+        canvas()->fully_restart_graph_layout();
+    }
 }
 
 QColor ConnectorLabel::strokeColour(void) const
@@ -361,16 +388,6 @@ void ConnectorLabel::paint(QPainter *painter,
 
     if (!m_label.isEmpty())
     {
-        if (width() < 30)
-        {
-            setSize(QSizeF(qreal(30), qreal(height())));
-        }
-
-        if (height() < 20)
-        {
-            setSize(QSizeF(qreal(width()), qreal(20)));
-        }
-
         QFontMetrics qfm(canvas()->canvasFont());
         int maxWordLength = 0;
         QStringList wordList = m_label.split(" ");
@@ -434,6 +451,7 @@ void ConnectorLabel::paint(QPainter *painter,
     }
     painter->setRenderHint(QPainter::TextAntialiasing, true);
     painter->drawText(boundingRect(), Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, m_label);
+
 }
 
 

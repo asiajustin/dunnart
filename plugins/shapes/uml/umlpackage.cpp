@@ -41,6 +41,8 @@ QAction *PackageShape::buildAndExecContextMenu(QGraphicsSceneMouseEvent *event, 
     {
         m_expanded ? setExpanded(false) : setExpanded(true);
     }
+    delete editExpanded;
+    editExpanded = NULL;
 
     return action;
 }
@@ -89,7 +91,6 @@ void PackageShape::setLabel(const QString& label)
     m_label = label.simplified();
 
     update();
-    canvas()->layout()->setRestartFromDunnart();
 }
 
 void PackageShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
@@ -137,7 +138,7 @@ void PackageShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     // Call the parent paint method, to draw the node and label
     ShapeObj::paint(painter, option, widget);
 
-    painter->setPen(Qt::black);
+    painter->setPen(strokeColour());
     if (canvas())
     {
         painter->setFont(canvas()->canvasFont());

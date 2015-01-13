@@ -36,7 +36,6 @@
 
 #include "libavoid/geomtypes.h"
 
-
 class QGraphicsSceneMouseEvent;
 
 namespace Avoid {
@@ -205,6 +204,7 @@ class Connector : public CanvasItem
                 QDomDocument& doc);
         QRectF boundingRect(void) const;
         QPainterPath shape() const;
+        QPainterPath painterPath(void) const;
         void paint(QPainter *painter,
                 const QStyleOptionGraphicsItem *option, QWidget *widget);
         virtual void setPainterPath(QPainterPath path);
@@ -217,11 +217,27 @@ class Connector : public CanvasItem
                 Connector::ArrowHeadType arrow_type = Connector::normal);
         static QString valueStringForEnum(const char *enumName,
                 int enumValue);
+        void updateIdealPosition(void);
+        ShapeObj *getSrcShape(void);
+        ShapeObj *getDstShape(void);
+        ConnectorLabel *getSrcLabelRectangle1(void);
+        ConnectorLabel *getSrcLabelRectangle2(void);
+        ConnectorLabel *getMiddleLabelRectangle1(void);
+        ConnectorLabel *getMiddleLabelRectangle2(void);
+        ConnectorLabel *getDstLabelRectangle1(void);
+        ConnectorLabel *getDstLabelRectangle2(void);
 
         bool m_is_multiedge;
         unsigned m_multiedge_size;
         unsigned m_multiedge_index;
         OrthogonalConstraint m_orthogonal_constraint;
+
+        bool arrowHeadOutline(void);
+        bool arrowTailOutline(void);
+        QPainterPath getArrowHeadPath(void);
+        QPainterPath getArrowTailPath(void);
+
+        QMap<int, double> getIdOffsetMap(void);
 
     public slots:
         void swapDirection(void);
@@ -273,6 +289,16 @@ class Connector : public CanvasItem
 
         double previousSrcPtY;
         double previousDstPtY;
+
+        QPainterPath labelConnectorPath;
+        QPainterPath associationClassConnectorPath;
+
+        QPointF srcLabelsAtConnectorPoint;
+        QPointF midLabelsAtConnectorPoint;
+        QPointF dstLabelsAtConnectorPoint;
+
+        ShapeObj *associationClass;
+        QMap<int, double> idOffsetMap;
 };
 
 

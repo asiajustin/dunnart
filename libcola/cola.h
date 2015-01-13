@@ -779,6 +779,10 @@ public:
 
     double computeStress() const;
 
+    void setUmlEdgeLabelStartIndex(int);
+    void setShapeEndIndex(int);
+    void setUmlMidLabelDummyNodeMap(std::map<int, int>);
+
 private:
     unsigned n; // number of nodes
     std::valarray<double> X, Y;
@@ -835,6 +839,10 @@ private:
     NonOverlapConstraintExemptions *m_nonoverlap_exemptions;
 
     friend class topology::ColaTopologyAddon;
+
+    int umlEdgeLabelStartIndex;
+    int shapeEndIndex;
+    std::map<int, int> midLabelDummyNodeMap;
 };
 
 /*

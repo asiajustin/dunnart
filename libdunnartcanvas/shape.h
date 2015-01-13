@@ -173,6 +173,8 @@ class ShapeObj: public CanvasItem
         void hideConnectionPoints(void);
         bool changeDetailLevel(bool expand);
         virtual QRectF shapeRect(const double buffer = 0.0) const;
+        virtual void setIdealPos(QPointF pos);
+        virtual QPointF idealPos();
         void setPos(const QPointF& pos);
         virtual void setSize(const QSizeF& size);
         void setPosAndSize(const QPointF& newCentrePos, const QSizeF& newSize);
@@ -245,6 +247,8 @@ class ShapeObj: public CanvasItem
          */
         uint currentDetailLevel(void) const;
 
+        void setDetailLevel(uint level);
+
         bool m_is_pinned;
         QGraphicsSvgItem *m_lock_icon;
         QPixmap* decorativeImage;
@@ -253,6 +257,7 @@ class ShapeObj: public CanvasItem
 
     private:
         virtual void userMoveBy(qreal dx, qreal dy);
+        void exploreInheritanceAndColorNodes(uint shapeId, bool isForward);
 
         QString m_label;
         QColor m_fill_colour;
@@ -267,6 +272,9 @@ class ShapeObj: public CanvasItem
         QMarginsF m_containment_padding;
 
         friend class Cluster;
+
+        QPointF ideal_pos;
+        QMap<unsigned, unsigned> shapeConnectorMap;
 };
 
 typedef std::list<ShapeObj *> ShapeList;

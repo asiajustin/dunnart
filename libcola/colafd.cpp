@@ -542,6 +542,10 @@ void ConstrainedFDLayout::makeFeasible(void)
         // idleConstraints is sorted lowest to highest priority, so the 
         // highest priority constraint will be at the back of the vector.
         cola::CompoundConstraint *cc = idleConstraints.back();
+        cc->setUmlEdgeLabelStartIndex(umlEdgeLabelStartIndex);
+        cc->setShapeEndIndex(shapeEndIndex);
+        cc->setRectangles(boundingBoxes);
+        cc->setUmlMidLabelDummyNodeMap(midLabelDummyNodeMap);
         idleConstraints.pop_back();
 
 #ifdef MAKEFEASIBLE_DEBUG
@@ -1179,6 +1183,22 @@ double ConstrainedFDLayout::computeStress() const {
     }
     return stress;
 }
+
+void ConstrainedFDLayout::setUmlEdgeLabelStartIndex(int index)
+{
+    umlEdgeLabelStartIndex = index;
+}
+
+void ConstrainedFDLayout::setShapeEndIndex(int index)
+{
+    shapeEndIndex = index;
+}
+
+void ConstrainedFDLayout::setUmlMidLabelDummyNodeMap(std::map<int, int> map)
+{
+    midLabelDummyNodeMap = map;
+}
+
 void ConstrainedFDLayout::moveBoundingBoxes() {
     for(unsigned i=0;i<n;i++) {
         boundingBoxes[i]->moveCentre(X[i],Y[i]);
